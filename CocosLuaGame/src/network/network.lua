@@ -1,0 +1,2 @@
+require("recMessageManage")
+require("sendMessageManage")
