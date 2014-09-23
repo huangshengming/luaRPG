@@ -56,23 +56,23 @@ g_bioStateType=
 --生物状态对应的str
 g_bioStateStr = 
 {
-   --[[ g_bioStateType.standing          = ]]   "standing"          ,             --站立
-   --[[ g_bioStateType.walking           = ]]   "walking"           ,             --行走
-   --[[ g_bioStateType.running           = ]]   "running"           ,             --跑
-   --[[ g_bioStateType.jumpUp            = ]]   "jumpUp"            ,             --跳起
-   --[[ g_bioStateType.jumpDown          = ]]   "jumpDown"          ,             --落下
-   --[[ g_bioStateType.jumpAttackReady   = ]]   "jumpAttackReady"   ,             --空中攻击准备
-   --[[ g_bioStateType.jumpAttacking     = ]]   "jumpAttacking"     ,             --空中攻击
-   --[[ g_bioStateType.jumpAttackEnd     = ]]   "jumpAttackEnd"     ,             --空中攻击缓冲,属于地面硬直！！
-   --[[ g_bioStateType.attackReady       = ]]   "attackReady"       ,             --地面攻击准备、攻击前摇
-   --[[ g_bioStateType.attacking         = ]]   "attacking"         ,             --地面攻击
-   --[[ g_bioStateType.attackEnd         = ]]   "attackEnd"         ,             --地面攻击结束、连击缓冲
-   --[[ g_bioStateType.beHit             = ]]   "beHit"             ,             --受击
-   --[[ g_bioStateType.beStrikeFly       = ]]   "beStrikeFly"       ,             --击飞
-   --[[ g_bioStateType.beRebound         = ]]   "beRebound"         ,             --反弹，击飞过高会产生反弹状态
-   --[[ g_bioStateType.lyingFloor        = ]]   "lyingFloor"        ,             --躺地板
-   --[[ g_bioStateType.death             = ]]   "death"             ,             --死亡
-   --[[ g_bioStateType.lyingFly          = ]]   "lyingFly"          ,             --躺地板被击飞
+    "standing"          ,             --站立
+    "walking"           ,             --行走
+    "running"           ,             --跑
+    "jumpUp"            ,             --跳起
+    "jumpDown"          ,             --落下
+    "jumpAttackReady"   ,             --空中攻击准备
+    "jumpAttacking"     ,             --空中攻击
+    "jumpAttackEnd"     ,             --空中攻击缓冲,属于地面硬直！！
+    "attackReady"       ,             --地面攻击准备、攻击前摇
+    "attacking"         ,             --地面攻击
+    "attackEnd"         ,             --地面攻击结束、连击缓冲
+    "beHit"             ,             --受击
+    "beStrikeFly"       ,             --击飞
+    "beRebound"         ,             --反弹，击飞过高会产生反弹状态
+    "lyingFloor"        ,             --躺地板
+    "death"             ,             --死亡
+    "lyingFly"          ,             --躺地板被击飞
 }
 
 
@@ -82,6 +82,8 @@ g_bioFactionType=
   friend= 1,-- 友方  包括自己 
   enemies=2, -- 敌方
   neutral=3,-- 中立  比如NPC
+  friendPets=4,--友方宠物
+  enemiesPets=5,--敌方宠物
 }
 
 --生物朝向

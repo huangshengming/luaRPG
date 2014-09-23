@@ -2,7 +2,7 @@ require "Cocos2d"
 require "g_constType"
 require "armatureRender.armatureTable"
 require "Opengl"
-
+require("gameWinSize")
 ---
 -- 加载一个骨骼资源json文件
 -- @param id 资源id
@@ -11,15 +11,15 @@ require "Opengl"
 function GFLoadArmatureJson(id,type)
     local jsonPath
     if type==g_tJsonType.bio then
-        jsonPath = g_tBioPath[id]
+        jsonPath = g_tBioId[id].path
         if jsonPath==nil then
-            print("in GFLoadArmatureJson : bio id_"..id.."not found in table!")
+            print("in GFLoadArmatureJson : bio id_"..id.."  is not found in table!")
             return nil
         end
     elseif type==g_tJsonType.effect then
-        jsonPath = g_tEffectPath[id]
+        jsonPath = g_tEffectId[id].path
         if jsonPath==nil then
-            print("in GFLoadArmatureJson : effect id_"..id.."not found in table!")
+            print("in GFLoadArmatureJson : effect id_"..id.."  is not found in table!")
             return nil
         end
     end
@@ -46,6 +46,8 @@ end
 -- @param id1,id2,id3 暂不用，待扩展
 -- @return bool 如果播放成功,返回true,否则返回false
 function GFArmaturePlayAction(bio,bioId,stateType,stateZiId,id1,id2,id3)
+    --静态id写死为1
+    bioId =1
     if bio==nil then
         print("in GFAarmaturePlayAction: bio is nil!")
         return false
@@ -57,10 +59,14 @@ function GFArmaturePlayAction(bio,bioId,stateType,stateZiId,id1,id2,id3)
         return false
     end
     --初始化前清空所有事件
-    --    bio:getAnimation():setFrameEventCallFunc()
-    --    bio:getAnimation():setMovementEventCallFunc()
+--    bio:getAnimation():setFrameEventCallFunc()
+--    bio:getAnimation():setMovementEventCallFunc()
+
     --初始化armature
-    bio:init(armatureName)
+    if bio.armatureName~=armatureName then
+        bio:init(armatureName)
+        bio.armatureName = armatureName
+    end
 
     --取得所有动画
     local animation = bio:getAnimation()
@@ -77,25 +83,24 @@ function GFArmaturePlayAction(bio,bioId,stateType,stateZiId,id1,id2,id3)
     --保存对碰撞骨骼的引用
     bio._beHitBoneList = GFGetBeHitBones(bio)
     bio._hitBoneList = GFGetHitBones(bio)
-
+    GFGetBeHitRangeList(bio)
     --默认不显示碰撞区域图
     GFSetEditerColliderVisible(bio,g_bIsShowEditerCollider)
 
-
-    --    local function dddd()
-    --        local pos = armature:getBone("main"):getDisplayRenderNode():getBoundingBox()
-    --        print(pos.x,pos.y)
-    --    end
-    --    cc.Director:getInstance():getScheduler():scheduleScriptFunc(dddd,0,false)
-    --    return true
+    
+--    local function dddd()
+--        local pos = armature:getBone("main"):getDisplayRenderNode():getBoundingBox()
+--        print(pos.x,pos.y)
+--    end
+--    cc.Director:getInstance():getScheduler():scheduleScriptFunc(dddd,0,false)
+--    return true
 end
 
 function GFGetAnimationId(armatureId,stateType,stateZiId)
     --根据bio状态取得动画类型
     local animationType = g_tBioStateMatch[stateType]
     --再根据动画类型取得对应动画名
-    local ddd = g_tBioDatas[armatureId]
-    local animationId = g_tBioDatas[armatureId][g_tAnimationType[animationType]] 
+    local animationId = g_tBioDatas[armatureId][animationType] 
     if animationId == nil then
         print("in GFGetAnimationId = animationId is nil!")
         return nil
@@ -112,24 +117,29 @@ end
 function GFGetHitRangeList(armature)
     if armature==nil then
         print("in GFgetHitRangeList: armature is nil!")
-        return nil
+        return {}
     end
 
     local boneDic = armature._hitBoneList
     --从hit1开始
     if boneDic == nil then
         print("this armature has no hitBones!")  
-        return nil
+        return {}
     end
     local rangeList = {}
     for key,bone in pairs(boneDic) do
         local boundBox = bone:getDisplayManager():getBoundingBox()
-        rangeList.key = {
-            cc.p(boundBox.x,boundBox.y),
-            cc.p(boundBox.x+boundBox.width,boundBox.y),
-            cc.p(boundBox.x+boundBox.width,boundBox.y+boundBox.height),
-            cc.p(boundBox.x,boundBox.y+boundBox.height)
-        }              
+        local po = cc.p(boundBox.x,boundBox.y)
+        --pprint(boundBox)
+        local worldPoint = armature:convertToWorldSpaceAR(po)
+        if armature:getScaleX()<0 then
+            worldPoint.x= worldPoint.x+boundBox.width*gameWinSize:getInstance():GetSceneScale()*armature:getScaleX()
+        end
+        if armature:getScaleY()<0 then
+            worldPoint.y= worldPoint.x+boundBox.width*gameWinSize:getInstance():GetSceneScale()*armature:getScaleY()
+        end
+        local rect = cc.rect(worldPoint.x,worldPoint.y,boundBox.width*gameWinSize:getInstance():GetSceneScale(),boundBox.height*gameWinSize:getInstance():GetSceneScale())
+        table.insert(rangeList,rect)        
     end
     return rangeList
 end
@@ -142,25 +152,30 @@ end
 function GFGetBeHitRangeList(armature)
     if armature==nil then
         print("in GFGetBeHitRangeList: armature is nil!")
-        return nil
+        return {}
     end
 
     local boneDic = armature._beHitBoneList
     --从beHit1开始
     if boneDic == nil then
         print("this armature has no beHitBones!") 
-        return nil
+        return {}
     end
     local rangeList = {}
     for key,bone in pairs(boneDic) do
         local boundBox = bone:getDisplayManager():getBoundingBox()
-        rangeList.key = {
-            cc.p(boundBox.x,boundBox.y),
-            cc.p(boundBox.x+boundBox.width,boundBox.y),
-            cc.p(boundBox.x+boundBox.width,boundBox.y+boundBox.height),
-            cc.p(boundBox.x,boundBox.y+boundBox.height)
-        }              
+        local po = cc.p(boundBox.x,boundBox.y)
+        local worldPoint = armature:convertToWorldSpaceAR(po)
+        if armature:getScaleX()<0 then
+            worldPoint.x= worldPoint.x+boundBox.width*gameWinSize:getInstance():GetSceneScale()*armature:getScaleX()
+        end
+        if armature:getScaleY()<0 then
+            worldPoint.y= worldPoint.x+boundBox.width*gameWinSize:getInstance():GetSceneScale()*armature:getScaleY()
+        end
+        local rect = cc.rect(worldPoint.x,worldPoint.y,boundBox.width*gameWinSize:getInstance():GetSceneScale(),boundBox.height*gameWinSize:getInstance():GetSceneScale())
+        table.insert(rangeList,rect)         
     end
+    --pprint(rangeList)
     return rangeList
 end
 
@@ -208,7 +223,7 @@ function GFGetHitBones(armature)
 
     local boneDic = armature:getBoneDic()
     --从hit1开始
-    if boneDic.beHit1 ~= nil then
+    if boneDic.hit1 ~= nil then
         local hitBoneList = {}
         local temp = "hit"
         local i = 0
@@ -274,22 +289,19 @@ function GFSetEditerColliderVisible(armature,visible)
 
 end
 
+
+---播放独立的skill
 function GFPlayEffect(effect,effectId)
     if effect==nil then
-        print("in GFPlayEffect: effect is nil!")
+        print("in GFPlaySkillInd: effect is nil!")
         return false
     end
 
     --初始化前清空所有事件
-    --    bio:getAnimation():setFrameEventCallFunc()
-    --    bio:getAnimation():setMovementEventCallFunc()
-    
-    --如果技能是与人物绑定的，则无需独立播放
-    if g_tEffectTypeMatch[effectId] == g_tEffectType.binding then
-        return
-    end
+--    effect:getAnimation():setFrameEventCallFunc()
+--    effect:getAnimation():setMovementEventCallFunc()
 
-    --根据effectId加载json资源
+    --根据skillId加载json资源
     local armatureName = GFLoadArmatureJson(effectId,g_tJsonType.effect)
     --初始化armature
     if armatureName==nil then
@@ -311,6 +323,50 @@ function GFPlayEffect(effect,effectId)
     effect._hitBoneList = GFGetHitBones(effect)
 
     --默认不显示碰撞区域图
-    GFSetEditerColliderVisible(effect,false)
-
+    GFSetEditerColliderVisible(effect,g_bIsShowEditerCollider)
 end
+
+
+--function GFPlaySkillBind(bio,skillId,id1,id2,id3)
+--    if bio==nil then
+--        print("in GFPlaySkilBind: bio is nil!")
+--        return false
+--    end
+--
+--    --初始化前清空所有事件
+--    --    bio:getAnimation():setFrameEventCallFunc()
+--    --    bio:getAnimation():setMovementEventCallFunc()
+--
+--    --如果技能是与人物绑定的，则应该由人物来播放
+--    if g_tSkillTypeMatch[skillId] == g_tSkillType.independent then
+--        print("skillId = "..skillId.."is independent!")
+--        return
+--    end
+--
+--    --根据skillId加载json资源
+--    local armatureName = GFLoadArmatureJson(skillId,g_tJsonType.skill)
+--    --初始化armature
+--    if armatureName==nil then
+--        return false
+--    end
+--    bio:init(armatureName)
+--
+--    --取得所有动画
+--    local animation = bio:getAnimation()
+--    if animation==nil then
+--        print("in GFPlaySkillBind: animation is nil!")
+--        return false
+--    end
+--
+--    animation:play(g_tSkillAnimationName[skillId])
+--
+--    --保存对碰撞骨骼的引用
+--    bio._beHitBoneList = GFGetBeHitBones(bio)
+--    bio._hitBoneList = GFGetHitBones(bio)
+--
+--    --默认不显示碰撞区域图
+--    GFSetEditerColliderVisible(bio,g_bIsShowEditerCollider)
+--end
+
+
+

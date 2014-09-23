@@ -18,8 +18,7 @@ end
 
 function sceneManagement:ctor()
     self.gameScene = nil
-    self.bioList={}
-    self.skillList={}
+    self.bioList={} --[bio.dyId] = bio
     GFRecAddDataListioner(self)
     local prot =GFProtGet(ProtBioInstanceList_C2S_ID)
     GFSendOneMsg(prot)
@@ -34,15 +33,20 @@ function sceneManagement:recMessageProc(prot)
      
      
         for k,v in pairs(prot.instanceList or {}) do
-            local tempBio= require("bio.bio")
-            local temphero=tempBio:create("tttttttt")
-            self.gameScene:GetNearBg():addChild(temphero)
-            temphero:setSceneManagement(self)
-            temphero:setPosition(v.positon.x,v.positon.y)
+            local bioClass= require("bio.bio")
+            local roleClass = require("bio.role")
+            local bio=nil
+            
             if v.lead==1 then
-                g_playerObj = temphero
+                bio = roleClass:create(v.dynamicId,v.staticId,"ttttttt",v.faction)
+                g_playerObj = bio 
                 self.gameScene:SetHero(g_playerObj)
+            else
+                bio = bioClass:create(v.dynamicId,v.staticId,"ttttttt",v.faction)  
             end
+            self.gameScene:GetNearBg():addChild(bio)
+            bio:setSceneManagement(self)
+            bio:setPosition(v.positon.x,v.positon.y)
         end 
         
        
@@ -73,7 +77,11 @@ function sceneManagement:StandingY()
 end
 
 function sceneManagement:addOneBio(bio)
+    if self.bioList[bio.dyId]==nil then
+        self.bioList[bio.dyId] = bio
+    end
 
+    --[[
     local bIsOriginallyHave=false
     for k,v in pairs(self.bioList or {}) do
         if v == bio then
@@ -83,43 +91,42 @@ function sceneManagement:addOneBio(bio)
     if bIsOriginallyHave==false then
         table.insert(self.bioList ,bio)
     end
+    ]]
 
 end
 
 function sceneManagement:removeOneBio(bio)
+    if self.bioList[bio.dyId]~=nil then
+        self.bioList[bio.dyId] = nil
+    end
 
+    --[[
     for k,v in pairs(self.bioList or {}) do
         if v == bio then
             table.remove(self.bioList,k)
             break
         end
     end
+    ]]
     
 end
 
-function sceneManagement:addOneSkill(skill)
-
-    local bIsOriginallyHave=false
-    for k,v in pairs(self.skillList or {}) do
-        if v == skill then
-            bIsOriginallyHave =true
-        end
-    end 
-    if bIsOriginallyHave==false then
-        table.insert(self.skillList ,bio)
-    end
-
-
+function sceneManagement:getBoiList()
+    return self.bioList
 end
-function sceneManagement:removeOneSkill(skill)
 
-    for k,v in pairs(self.skillList or {}) do
-        if v == skill then
-            table.remove(self.skillList,k)
-            break
-        end
-    end
+function sceneManagement:getBioTag(dyId)
+    return self.bioList[dyId]
 end
+
+function sceneManagement:getlayer()
+    local tempLayer=nil
+    if self.gameScene then
+        tempLayer=self.gameScene:GetNearBg()
+    end
+    return tempLayer
+end
+
 return  sceneManagement 
 
 

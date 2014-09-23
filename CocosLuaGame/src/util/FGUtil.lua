@@ -87,6 +87,22 @@ function FGGetTickCountMS()
 end
 
 
+function GFIsHostileByFaction(faction1,faction2)
+
+    if faction1==g_bioFactionType.friend or faction1==g_bioFactionType.friendPets  then
+        if faction2==g_bioFactionType.enemies or  faction2==g_bioFactionType.enemiesPets then
+           return true 
+        end
+     end
+     if faction1== g_bioFactionType.enemies  or faction1==g_bioFactionType.enemiesPets then
+        if  faction2== g_bioFactionType.friend or faction2==g_bioFactionType.friendPets then
+           return true
+        end
+     end
+    return false
+     
+end
+
 
 --打印table
 function pprint(lua_table, indent)

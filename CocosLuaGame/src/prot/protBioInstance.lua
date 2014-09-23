@@ -1,7 +1,7 @@
 ---
 -- 战斗模块 客户端内部通信协议 
 -- ID段:9001~9100
--- @moudle ProtBioInstance
+-- @module ProtBioInstance
 -- @author 张微
 -- @copyright usugame
 
@@ -54,6 +54,7 @@ local instanceList = {
 	hp = -1,	            --血量			
 	mp = -1,		     	--魔量	
 	lead = -1,		        --0 非英雄 1英雄 目前demo 以后英雄属性有主角类管理
+    faction = -1,           --阵营 1己方 2敌方 3中立
 	dynamicId = -1,         --动态ID
 	staticId = -1,          --静态ID 
     status = -1,            --初始状态 对应g_bioStateType
@@ -119,6 +120,7 @@ protDict[ProtBioCastSkill_S2C_ID] = {
 protDict[ProtBioDamage_S2C_ID] = {
     protId = ProtBioDamage_S2C_ID,
     dynamicId = -1,                     --被攻击者动态ID
+    attackDynamicId = -1,               --攻击者动态ID
     damage = -1,                        --扣血量
     skillId = -1,                       --被攻击的技能ID
     dType = -1,                         --扣血类型 0常规(技能) 1暴击 2BUFF 

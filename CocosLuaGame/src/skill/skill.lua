@@ -16,91 +16,121 @@ end)
 -- 创建并开始播放技能
 -- @param bioObj 生物对象
 -- @number skillId 技能ID
--- @param sceneManagement 场景管理
+-- @param sceneManagement 场景管理类
 -- @treturn skill obj 技能对象
 function skill:create(bioObj,skillId,sceneManagement)
     local obj = skill.new(bioObj,skillId,sceneManagement)
     return obj
 end
 
----
+
 --初始化
 function skill:ctor(bioObj,skillId,sceneManagement)
+
     self._bioObj    = bioObj
     self._skillId   = skillId
     self._sceneManagement = sceneManagement
-    
-    --self._sceneManagement:addOneSkill(self)
+    self._bioFaction    = bioObj:getFaction()
+    self._collideData   = {}
+
+    --保持
+    self:retain()
     
     function tempUpdate()
-        --self:updateCollider()
+        self:updateCollider()
     end
-    --self.tttempid=  cc.Director:getInstance():getScheduler():scheduleScriptFunc(tempUpdate,0,false)
+    self._schedulerId=  cc.Director:getInstance():getScheduler():scheduleScriptFunc(tempUpdate,0,false)
     
     
     --根据skillId读取人物arm与特效eff配置进行渲染
     
     local skillData = require("skill.skillDataConf"):getInstance()
-    --print("WTF____skillData",skillData:getBioArmatureIdBySkillId(1),skillData:getEffArmatureIdBySkillId(1),skillData:getMaxHurtTimesBySkillId(1))
-    
-    --TODO
-    self._bioArmId = skillData:getBioArmatureIdBySkillId(skillId)
-    --bioObj:palyAct
-    
-    local effId = skillData:getEffArmatureIdBySkillId(skillId)
-    --TODO 通过bioObj来get
-    local bioId = nil
-    local dirction = nil
-    --local effObj = require(skill.skillEffect):create(skillId,bioId,effId,dirction,sceneManagement)
-    --TODO 设置位置
+    local effId = skillData:getEffArmatureIdBySkillId(self._skillId)
+    if effId ~= -1 then
+        local bioId = self._bioObj:getDynamicId()
+        local direction = self._bioObj:getDirection()
+        local effObj = require("skill.skillEffect"):create(self._skillId,bioId,effId,direction,self._bioFaction,self._collideData,self._sceneManagement)
+        --TODO 根据方向设置不同位置
+        local x,y = self._bioObj:getPosition()
+        effObj:setPosition(x,y)
+        local layer = self._sceneManagement:getlayer()
+        if layer then
+            layer:addChild(effObj)
+        end
+    end
 end
 
 ---
 --中断
 function skill:interrupt()
-    --self._sceneManagement:removeOneSkill(self)
+    if self._schedulerId then
+        cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self._schedulerId)
+    end
+    self:release()
 end
 ---
 --结束
 function skill:finish()
-    --self._sceneManagement:removeOneSkill(self)
+    if self._schedulerId then
+        cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self._schedulerId)
+    end
+    self:release()
 end
 ---
---技能的事件处理
---event string
+--技能的事件处理,由bio类传递
+--eventName string
 --下一个特效开始的回调
-function skill:eventHandler(event)
-    --nextEffId|id1,id2
+function skill:eventHandler(bone,eventName,originFrameIndex,currentFrameIndex)
+    --nextEff|id1,id2
+    print("WTF___nextEff__",eventName)
+    local eventData = FGUtilStringSplit(eventName,"|")
+    if eventData[1] == "nextEff" then
+        local skillList = FGUtilStringSplit(eventData[2],",")
+        for i,skillIdStr in ipairs(skillList) do
+            local nextEffId = tonumber(skillIdStr)
+            
+            local bioId = self._bioObj:getDynamicId()
+            local direction = self._bioObj:getDirection()
+            local effObj = require("skill.skillEffect"):create(self._skillId,bioId,nextEffId,direction,self._bioFaction,self._collideData,self._sceneManagement)
+            --TODO 根据方向设置不同位置
+            local x,y = self._bioObj:getPosition()
+            effObj:setPosition(x,y)
+            local layer = self._sceneManagement:getlayer()
+            if layer then
+                layer:addChild(effObj)
+            end
+        end
+        return
+    end
 end
 
----
+
 --update碰撞检测,技能释放者bio
 function skill:updateCollider()
     --总是与对方阵营生物进行碰撞
-    --TODO GFGetBioListInScene
-    --TODO GFGetGroupOfBio(bioId)
-    --TODO bioObj:getAutoId()
-    local myGroup = GFGetGroupOfBio(self._bioObj:getAutoId())
-    local bioList = GFGetBioListInScene()
-    --TODO bioList bioData
-    for bioData in pairs(bioList) do
-        if bioData.group ~= myGroup then
-            local bIsCollided = GFColliderForArmatureObjs(self,bioData)
+    local bioList = self._sceneManagement:getBoiList()
+    for k,bioObj in pairs(bioList) do
+        if GFIsHostileByFaction(bioObj:getFaction(),self._bioFaction) then
+            local bIsCollided = GFColliderForSkill(self,bioObj)
             if bIsCollided then
-                --TODO 通知有效碰撞发生 
-                GFXXXXXXXX(self.bioObj:getAutoId(),bioData.bioObj,self._skillId)
+                --通知有效碰撞发生 
+                self:sendCollideProt(self._bioObj:getDynamicId(),bioObj:getDynamicId(),self._skillId)
             end
         end 
     end
 end
 
+function skill:sendCollideProt(castBioId,targetObjId,skillId)
+    local prot = GFProtGet(ProtBioCollision_C2S_ID)
+    prot.attackerDynamicId  = castBioId
+    prot.goalDynamicId      = targetObjId
+    prot.skillId            = skillId
+    GFSendOneMsg(prot)
+end
 
----
 --获取碰撞检测需要的技能信息
-function skill:getSkillInfo()
-    local skillInfo = {}
-    skillInfo.armId         = self._bioArmId
-    return skillInfo
+function skill:getCollideData()
+    return self._collideData
 end
 
 function skill:getCollideObj()

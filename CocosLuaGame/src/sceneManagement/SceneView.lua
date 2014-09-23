@@ -6,10 +6,12 @@ require "Cocos2d"
 require "math"
 require("gameWinSize")
 
-local SceneView = class("SceneView", function ()
+sceneView = class("sceneView", function ()
     return cc.Scene:create()
 end)
-
+---2014-09-19 15:22:20 by zx
+local SceneView = sceneView
+---
 function SceneView:createScene(id)
     local scene = SceneView.new()
     if not scene then
@@ -46,9 +48,8 @@ function SceneView:ctor()
     local function onNodeEvent(event)
         if "enter" == event then
             --- 2014年09月17日19:38:09 zx
-            -- loading层
-            --scene:addChild( require("sceneManagement/loadLayer"):CreateLoadingLayer(1))
-            --print("加载资源")
+            -- loading层           
+            -- print("加载资源")
         elseif "cleanup" == event then
             print("----退出----")
             cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.scheduleId)
@@ -148,7 +149,7 @@ function SceneView:createLayer(id)
             newPos.x = self.bg_far:getPositionX() + changeX * persentX 
             newPos.y = self.bg_far:getPositionY() + changeY * persentY
             self.bg_far:setPosition( newPos )
-            
+
             ---
             -- 9.17 传送门碰撞
             --self.portalsLayer:IsCollide(self.hero)
@@ -157,7 +158,50 @@ function SceneView:createLayer(id)
             cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.scheduleId)
         end
     end
-    self.scheduleId = cc.Director:getInstance():getScheduler():scheduleScriptFunc(update, 0, false)
+    self.scheduleId = cc.Director:getInstance():getScheduler():scheduleScriptFunc(update, 0, false) 
+
+    --- 区域显示
+    -- 2014-09-19 23:06:50 by zx
+    local showRect = cc.MenuItemImage:create("menu1.png","menu1.png")
+    showRect:setPosition(0,0)
+    local function p()
+        local sm = require("sceneManagement.sceneManagement"):getInstance()
+        local _boilist = sm:getBoiList()
+        if true == g_bIsShowEditerCollider then
+            g_bIsShowEditerCollider=false
+        else
+            g_bIsShowEditerCollider=true
+        end
+        for k,v in pairs(_boilist) do
+            GFSetEditerColliderVisible(v,g_bIsShowEditerCollider)
+        end
+    end
+    showRect:registerScriptTapHandler(p)
+     showRect:setGlobalZOrder(10)
+
+     local menu = cc.Menu:create(showRect)
+     menu:setPosition(480,600)
+    self.layer:addChild(menu)
+    ---
+
+    
+    --- 2014-09-18 20:17:51 by zx  菜单蒙版-屏蔽层测试
+    --[[local l = require("sceneManagement/selectLayers/layerBase"):createLayer(100,self.visibleSize)
+    require("sceneManagement/selectLayers/layerBase"):setLayerVisible(false) 
+    self.layer:addChild(l)
+
+    local sp = cc.MenuItemImage:create("icon.png", "icon.png")
+    sp:setPosition(0,0)
+    local function p()
+        print("snmlkdshnjknglsgksfjebvkjdxglkszjgkedxjnhlrdxhb")
+        require("sceneManagement/selectLayers/layerBase"):setLayerVisible(true)
+        require("sceneManagement/selectLayers/layerBase"):GetListener():setEnabled(true)
+        require("sceneManagement/selectLayers/layerBase"):GetListener():setSwallowTouches(true)
+    end
+    sp:registerScriptTapHandler(p)
+    local menu = cc.Menu:create(sp)
+    menu:setPosition(300,300)
+    self.layer:addChild(menu)]]
 
     return self.layer
 end

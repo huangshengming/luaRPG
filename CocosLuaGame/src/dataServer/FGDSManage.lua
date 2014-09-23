@@ -1,6 +1,6 @@
 ---
 -- 客户端战斗 内部逻辑 生物管理类
--- @moudle dataServer
+-- @module dataServer
 -- @author 张微
 -- @copyright usugame
 
@@ -10,18 +10,20 @@ local _FGDSManage = nil
 
 ---
 -- 生物管理类 
--- @type BioManage Node
+-- @type FGDSManage Node
 local FGDSManage = class("FGDSManage",function()
     return cc.Node:create()
 end)
 
-
+---
+-- 生物管理类 获取单例
+-- @return userdata 生物管理类单例
 function FGDSManage:getInstance()
     if _FGDSManage == nil then
         _FGDSManage = FGDSManage.new()
         _FGDSManage:retain()
     end
- 
+
     return _FGDSManage
 end
 
@@ -41,7 +43,7 @@ function FGDSManage:ctor()
 end
 
 
----
+
 -- 生物管理类 C2S 接收协议的处理
 -- @param prot 协议
 -- @treturn bool bool 是否处理此协议
@@ -69,7 +71,7 @@ function FGDSManage:sendMessageProc(prot)
 	   return true
 	elseif prot.protId == 9007 then
 	   -- 碰撞检测
-        print("fy-- C2S Collision ")
+        print("fy-- C2S Collision ",prot.attackerDynamicId,prot.goalDynamicId,prot.skillId)
         self:collision(prot.attackerDynamicId,prot.goalDynamicId,prot.skillId)
          
 	   return true 
@@ -94,6 +96,7 @@ function FGDSManage:sendListPort()
         instanceList.dynamicId = v.dynamicId       
         instanceList.staticId = v.staticId
         instanceList.status = v.status
+        instanceList.faction = v.faction
         
         table.insert(bioList,instanceList)
 	end
@@ -106,7 +109,7 @@ end
 function FGDSManage:dataInit()
 
     local dy = 0
-    for i,v in pairs(g_bioConfiguration[1] or {}) do 
+    for i,v in ipairs(g_bioConfiguration[1] or {}) do 
         local dataList = {}
         if g_bioProperty[v] then 
             dataList = FGDeepCopy(g_bioProperty[v])
@@ -126,7 +129,8 @@ end
 
 --根据动态ID 获取当前对象 及 数据表
 function FGDSManage:getInstanceByDynamicId(dynamicId)
-	for i,v in pairs(self._tBio or {}) do 
+	for i,v in pairs(self._tBio or {}) do
+    --    print("fy-- get instance by dynamicId",v.dynamicId,dynamicId) 
 	   if v.dynamicId == dynamicId then
 	       return v.obj
 	   end
@@ -175,12 +179,12 @@ end
 function FGDSManage:collision(attacker,goal,skillId)
 	local a = self:getInstanceByDynamicId(attacker)
 	local g = self:getInstanceByDynamicId(goal)
-	
+	print("fy-- 管理碰撞 分发",a,g)
 	if a ~= nil then 
        a:attackHandle(skillId)
 	end
 	if g ~= nil then
-	   g:goalHandle(skillId)
+        g:goalHandle(skillId,attacker)
     end
 end
 

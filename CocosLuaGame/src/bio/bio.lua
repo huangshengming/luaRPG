@@ -1,47 +1,69 @@
 require "Cocos2d"
 require("armatureRender.armatureDraw")
 
+c_standForceCoe = 0.05 
+c_flyForceCoe = 1
+
+local skill = require("skill.skill")
+local skillData = require("skill.skillDataConf"):getInstance()
 
 local bio = class("bio",function()
          return ccs.Armature:create()
 end)
 
-function bio:create(dyId,name)
-    local bioTag = bio.new(dyId,name)
+function bio:create(dyId,staticId,name,faction)
+    local bioTag = bio.new(dyId,staticId,name,faction)
  
     return bioTag
 end
 
-function bio:ctor(dyId,name)
+function bio:ctor(dyId,staticId,name,faction)
     print("dyId=",dyId,"name=",name,"self=",type(self))
     --****************属性***********************
+    --数据相关
     self.dyId = dyId                              --人物动态id
-    self.staticId = 1                        --人物静态id
+    self.staticId = 1                             --人物静态id
     --self.orgPos = cc.p(0,200)                   --人物初始坐标Point
     self.sceneLandHeight = 200                    --场景陆地高，即人物站在地面时的高度
     self.name = name                              --人物名称
+    self.skillBar = {[1]={1,2,3,},[3]={4,}}       --人物技能栏,[技能栏id]={连击1，连击2，...}
+    self.skillBatterCount = 1                     --当前技能连击数
+    self.skillIndexUse = nil                      --当前使用技能的技能栏索引
+    self.faction = faction                        --生物派别阵营
+    self.armatureName = nil                       --资源名字
+
     self.state = g_bioStateType.standing          --人物状态
-    self.direction = g_bioDirectionType.right      --面朝方向，1-左边，2-右边
+    self.direction = g_bioDirectionType.right     --面朝方向，1-左边，2-右边
     self.xMoveState = g_bioStateType.standing     --x轴移动状态，包括走，跑，站立
-    self.preSetDirection = nil                    --预设的人物朝向，攻击动作结束后要根据该值调整朝向,nil时表示没有
+    self.presetDirection = nil                    --预设的人物朝向，攻击动作结束后要根据该值调整朝向,nil时表示没有
     self.attackOrderQue = {}                      --攻击指令队列
     self.speedWalkVx = 350                        --人物行走x速度，像素每秒
     self.speedRunVx = 620                         --人物跑步x速度，像素每秒
     self.speedJumpVy = 400                        --人物跳跃y速度
-    self.jumpHeight = 260
+    self.speedBeStrikeFlyVx = 250                 --人物被击飞时的x速度
+    self.speedBeHitVx = 80                        --人物受击时的x速度  
+    self.jumpHeight = 260                         --惹怒跳起的高度
     self.vx = 0
     self.vy = 0
+    self.moveDisx = 0                             --人物需要移动的x距离
+    self.moveDisy = 0                             --人物需要移动的y距离
     self.bAttackAnimOver = false                  --攻击动画是否播放完毕
     self.schedulerId = nil                        --loopUpdate的定时器id
-    self.onceSchedulerId = nil                    --一次性的定时器
+    self.onceSchedulerIds = {}                    --一次性的定时器数组
+    self.skillObj = nil                           --释放技能时候的技能对象，最多只有一个
     self.sceneManagement=nil                      --场景管理类
+    self.bChangStateByServer = false              --是否由服务器改变状态
 
 
     --********************************************
+
+    --注册接收协议
+    GFRecAddViewListioner(self)
+
+    --注册循环定时器
     local function tempLoop(dt)
         self:loopUpdate(dt)
     end
-
     self.schedulerId = cc.Director:getInstance():getScheduler():scheduleScriptFunc(tempLoop, 0, false)
 
     --注册事件回调
@@ -55,13 +77,27 @@ function bio:ctor(dyId,name)
             if  self.sceneManagement then
                 self.sceneManagement:removeOneBio(self)
             end
+
+            --删除协议监听
+            GFRecRemoveListioner(self)
         end
     end
     self:registerScriptHandler(onNodeEvent)
 
-    --进入站立状态
-    GFArmaturePlayAction(self,self.staticId,self.state,nil,nil,nil,nil)
+    --播放站立状态动画
+    self:playNewAnimation()
+end
 
+function bio:getDynamicId()
+    return self.dyId
+end
+
+function bio:getDirection()
+    return self.direction
+end
+
+function bio:getFaction()
+    return self.faction
 end
 
 function bio:setSceneManagement(sceneManagement)
@@ -98,55 +134,12 @@ function bio:getMainPosition()
         x= tempBoundingBox.width*tempAnchorPoint.x+tempBoundingBox.x
         y= tempBoundingBox.height*tempAnchorPoint.y+tempBoundingBox.y
     end
-    local tempPoint=self:convertToWorldSpaceAR(cc.p(x,y))
-    if self:getParent() then
-        tempPoint = self:getParent():convertToNodeSpaceAR(tempPoint)
-    end
-    return tempPoint.x,tempPoint.y
-end
-
---************************************************************
---动画监听回调
---
---整体动画回调
---@param bio 所属者
---@param movementType 1-非循环动画播放结束,2-循环动画每次动画播放结束
---@param movementId 动画标识str
-function bio.onAnimationMovementEvent(bio,movementType,movementId)
-    if movementType==1 then
-        print("movementEvent,movementType=",movementType,"movementId=",movementId,"bioState=",bio.state)
-        if bio.state==g_bioStateType.attackReady or bio.state==g_bioStateType.attacking or bio.state==g_bioStateType.attackEnd then
-            bio.bAttackAnimOver = true
-
-            --下一帧切换动作，防止即时删除当前动作造成上层循环指针野掉
-            local function timingEnter()
-                bio:enterNextState(bio.xMoveState)
-                if bio.preSetDirection~=nil then
-                    bio:setDirection(bio.preSetDirection)
-                    bio.preSetDirection = nil
-                end
-                if bio.onceSchedulerId then
-                    cc.Director:getInstance():getScheduler():unscheduleScriptEntry(bio.onceSchedulerId)
-                end
-            end
-
-            bio.onceSchedulerId = cc.Director:getInstance():getScheduler():scheduleScriptFunc(timingEnter, 0, false)
-        end
-    end
-end
-
---骨骼动画关键帧回调
---@param bone 骨骼动画
---@param eventName 事件tag
---@param originFrameIndex 预定的触发事件的帧数
---@param currentFrameIndex 实际触发时的帧数，特殊情况下由丢帧引起的实际触发帧数大于预定帧数
-function bio.onBoneFrameEvent(bone,eventName,originFrameIndex,currentFrameIndex)
-    local bio = bone:getArmature()
-    print("frameEvent,eventName=",eventName,"bioState=",bio.state)
-    if bio.state==g_bioStateType.attackReady then
-        if eventName=="attacking" then
-        end
-    end
+    local tempPoint=cc.p(0,0)
+    tempPoint.x,tempPoint.y= self:getPosition()
+    local retx = tempPoint.x+self:getScaleX()*x
+    local rety = tempPoint.y+self:getScaleY()*y
+    --print("MBB_=",tw,th,tx,ty,tax,tay,tempPoint.x,retx,tempPoint.y,rety)
+    return retx,rety
 end
 
 --*************************************************************
@@ -159,7 +152,6 @@ end
 
 function bio:standing_to_walking()
     local success = true
-    self.xMoveState = g_bioStateType.walking
     self.vx = self.speedWalkVx
     self.vy = 0
     self.state = g_bioStateType.walking
@@ -168,7 +160,6 @@ end
 
 function bio:standing_to_running()
     local success = true
-    self.xMoveState = g_bioStateType.running
     self.vx = self.speedRunVx
     self.vy = 0
     self.state = g_bioStateType.running
@@ -185,6 +176,7 @@ end
 
 function bio:standing_to_attackReady()
     local success = true
+    --
     self.vx = 0
     self.vy = 0
     self.state = g_bioStateType.attackReady
@@ -192,13 +184,27 @@ function bio:standing_to_attackReady()
 
     return success
 end
+
+function bio:standing_to_beHit()
+    local success = true
+    self.state = g_bioStateType.beHit
+
+    return success
+end
+
+function bio:standing_to_beStrikeFly()
+    local success = true
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
 --
 --当前为walking状态时
 function bio:walking_to_standing()
     local success = true
-    self.xMoveState = g_bioStateType.standing
     self.vx = 0
     self.vy = 0
+    self:clearOrderQue()
     self.state = g_bioStateType.standing
     return success
 end
@@ -210,11 +216,28 @@ function bio:walking_to_jumpUp()
     self.state = g_bioStateType.jumpUp
     return success
 end
+
+function bio:walking_to_attackReady()
+    local success = true
+    
+    self.vx = 0
+    self.vy = 0
+    self.state = g_bioStateType.attackReady
+    self.bAttackAnimOver = false
+
+    return success
+end
+
+function bio:walking_to_beStrikeFly()
+    local success = true
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
 --
 --当前为running状态时
 function bio:running_to_standing()
     local success = true
-    self.xMoveState = g_bioStateType.standing
     self.vx = 0
     self.vy = 0
     self.state = g_bioStateType.standing
@@ -233,14 +256,12 @@ end
 --当前为jumpUp状态时
 function bio:jumpUp_to_walking()
     local success = false
-    self.xMoveState = g_bioStateType.walking
     self.vx = self.speedWalkVx
     return success
 end
 
 function bio:jumpUp_to_runnig()
     local success = false
-    self.xMoveState = g_bioStateType.running
     --若在空中时，当前x速度不为跑步速度，则取用walk的x速度
     if self.vx~=self.speedRunVx then
         self.vx = self.speedWalkVx
@@ -275,13 +296,13 @@ end
 --当前为jumpDown状态时
 function bio:jumpDown_to_standing()
     local success = false
-    self.xMoveState = g_bioStateType.standing
 
     local x, y = self:getPosition()
     if y==self.sceneLandHeight then
         success = true
         self.vx = 0
         self.vy = 0
+        self:clearOrderQue()
         self.state = g_bioStateType.standing 
     end
     return success
@@ -289,13 +310,13 @@ end
 
 function bio:jumpDown_to_walking()
     local success = false
-    self.xMoveState = g_bioStateType.walking
 
     local x, y = self:getPosition()
     if y==self.sceneLandHeight then
         success = true
         self.vx = self.speedWalkVx
         self.vy = 0
+        self:clearOrderQue()
         self.state = g_bioStateType.walking
     end
     return success
@@ -309,10 +330,6 @@ function bio:jumpDown_to_running()
 end
 --
 --当前为attackReady状态
-function bio:attackReady_to_attackReady()
-    return false
-end
-
 function bio:attackReady_to_attacking()
     local success = true
     self.state = g_bioStateType.attacking
@@ -355,10 +372,23 @@ end
 --
 --当前为attacking状态
 function bio:attacking_to_attackEnd()
+    local success = true
+    self.state = g_bioStateType.attackEnd
+    return success
 end
 
 --
 --当前为attackEnd状态
+function bio:attackEnd_to_attackReady()
+    local success = true
+    self:skillObjInterrupt()
+    self.vx = 0
+    self.vy = 0
+    self.state = g_bioStateType.attackReady
+    self.bAttackAnimOver = false
+    return success
+end
+
 function bio:attackEnd_to_standing()
     local success = false
     if self.bAttackAnimOver then
@@ -370,45 +400,298 @@ function bio:attackEnd_to_standing()
     return success
 end
 
+function bio:attackEnd_to_walking()
+    local success = false
+    if self.bAttackAnimOver then
+        success = true
+        self.vx = self.speedWalkVx
+        self.vy = 0
+        self.state = g_bioStateType.walking
+    end
+    return success
+end
+
+function bio:attackEnd_to_running()
+    local success = false
+    if self.bAttackAnimOver then
+        success = true
+        self.vx = self.speedRunVx
+        self.vy = 0
+        self.state = g_bioStateType.running
+    end
+    return success
+end
+--
+--当前为beHit状态
+function bio:beHit_to_standing()
+    local success = true
+    self.vx = 0
+    self.vy = 0
+    self:clearOrderQue()
+    self.state = g_bioStateType.standing
+    return success
+end
+
+function bio:beHit_to_beStrikeFly()
+    local success = true
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
+--
+--当前为beStrikeFly状态
+function bio:beStrikeFly_to_lyingFloor()
+    local success = false
+    local x, y = self:getPosition()
+    if y==self.sceneLandHeight then
+        success = true
+        self.vx = 0
+        self.vy = 0
+        self.state = g_bioStateType.lyingFloor
+    end
+    
+    return success
+end
+--
+--当前为lyingFloor状态
+function bio:lyingFloor_to_standing()
+    local success = true
+    self.vx = 0
+    self.vy = 0
+    self:clearOrderQue()
+    self.state = g_bioStateType.standing
+    return success
+end
+
+
+
 --********end**********
 
 
---设置屏幕左部控制区域命令
-function bio:setLeftControlOrder(xState,dir)
-    local success = self:enterNextState(xState)
-    if dir~=nil then
-        if success or self.state==g_bioStateType.standing or self.state==g_bioStateType.walking or self.state==g_bioStateType.running or self.state==g_bioStateType.jumpUp or self.state==g_bioStateType.jumpDown then
-            self:setDirection(dir)
-        else
-            self.preSetDirection = dir
+--运行攻击指令队列的下一个指令
+function bio:runNextAttackOrder()
+    if #self.attackOrderQue>0 then
+        local success = self:attack(self.attackOrderQue[1])
+        if success then
+            table.remove(self.attackOrderQue,1)
         end
-    end
-    if not success then
-        self.xMoveState = xState
     end
 end
 
---设置屏幕右部控制区域命令
-function bio:setRightControlOrder(order)
-    local success = self:enterNextState(g_bioStateType.attackReady)
-    if not success then
-        table.insert(self.attackOrderQue,order)
+--清楚指令队列
+function bio:clearOrderQue()
+    self.attackOrderQue = {}
+    self.skillIndexUse = nil
+    self.skillBatterCount = 1
+end
+
+--人物攻击释放技能
+function bio:attack(skillIndex)
+    local success = false
+    
+    local skillTree = self.skillBar[skillIndex]
+    print("skillIndexUse=",self.skillIndexUse,"skillIndex=",skillIndex,"skillTree=",skillTree,"#skillTree=",#skillTree)
+    --该装备位是否有技能连击树
+    if type(skillTree)=="table" and #skillTree>0 then
+        if self.state==g_bioStateType.attackEnd then
+            --在attackEnd只有连击能继续
+            if self.skillIndexUse==skillIndex then
+                local skillId = skillTree[self.skillBatterCount]
+                print("MMM_Batter skillId=",skillId)
+                if skillId~=nil then
+                --若该技能树仍有连击技能
+                    success = self:enterNextState(g_bioStateType.attackReady,skillId)
+                end
+            end
+        elseif self.state==g_bioStateType.standing or self.state==g_bioStateType.walking or self.state==g_bioStateType.running then
+            self.skillBatterCount = 1
+            local skillId = skillTree[self.skillBatterCount]
+            print("MMM_skillId=",skillId)
+            success = self:enterNextState(g_bioStateType.attackReady,skillId)
+        end
     end
+    if success then
+        self.skillIndexUse = skillIndex
+        self.skillBatterCount = self.skillBatterCount+1
+    end
+
+    return success
+end
+
+--攻击、跳落等动作结束后还原为预设的x轴状态
+function bio:restoreXMoveState()
+    local success = self:enterNextState(self.xMoveState)
+    if success then
+        self.xMoveState = g_bioStateType.standing
+    end
+end
+
+--还原成预设的朝向
+function bio:restorePresetDirection()
+    if self.presetDirection~=nil then
+        self:setDirection(self.presetDirection)
+        self.presetDirection = nil
+    end
+end
+
+--通知skill对象完成
+function bio:skillObjFinish()
+    if self.skillObj~=nil then
+        self.skillObj:finish()
+        self.skillObj = nil
+    end
+end
+
+--通知skill对象打断
+function bio:skillObjInterrupt()
+    if self.skillObj~=nil then
+        self.skillObj:interrupt()
+        self.skillObj = nil
+    end
+end
+
+--通知服务器人物状态
+function bio:sendSeverBioState()
+    local prot =GFProtGet(ProBioStatusChange_C2S_ID)
+    prot.dynamicId = self.dyId
+    prot.status = self.state
+    print("MMM_sendstate,dyId,state=",self.dyId,self.state)
+    GFSendOneMsg(prot)
+end
+
+--接收协议
+function bio:recMessageProc(prot)
+    if prot.protId==ProBioStatusChange_S2C_ID and self.dyId==prot.dynamicId then
+    --状态改变
+        local state = prot.status
+        print("MMM_ProBioStatusChange_S2C_ID,dyId=",prot.dynamicId,"state=",state)
+
+        self.bChangStateByServer = true
+        self:enterNextState(state)
+        self.bChangStateByServer = false
+    elseif prot.protId==ProtBioDamage_S2C_ID and self.dyId==prot.dynamicId then
+        local skillId = prot.skillId
+        local atker = nil
+        local dirCoe = -1 --方向正负系数
+
+        if self.sceneManagement then
+            atker = self.sceneManagement:getBioTag(prot.attackDynamicId)
+        end
+        if atker~=nil then
+            local dir = g_bioDirectionType.right
+            if atker:getPositionX()<self:getPositionX() then
+                dir = g_bioDirectionType.left
+            end
+            --调整受击者朝向
+            self:setDirection(dir)
+        end
+
+        local tagSkill = skillData:getTagConfBySkillId(skillId)
+        if tagSkill~=nil then
+            local coe = c_standForceCoe
+            local vx = self.speedBeHitVx
+            local vy = 0
+            local moveDisx,moveDisy = 0,0
+            if self.state==g_bioStateType.beStrikeFly then
+                coe = c_flyForceCoe
+                vx = self.speedBeStrikeFlyVx
+                moveDisy = tagSkill.forceDis[2]*coe
+            end
+            moveDisx = tagSkill.forceDis[1]*coe
+            if moveDisy>0 then 
+                local time = moveDisx/vx
+                vy = moveDisy/(time*0.5)
+            end
+            self.vx = vx*dirCoe
+            self.vy = vy
+            self.moveDisx = moveDisx
+            self.moveDisy = moveDisy
+
+        print("MMM_dyId=",prot.dynamicId,"skillId=",skillId,"moveDisx,moveDisy=",self.moveDisx,self.moveDisy,"vx,vy=",self.vx,self.vy)
+
+        else
+            print("[erro]skill配置未找到！")
+        end
+	end
 end
 
 --播放动画
-function bio:playNewAnimation()
+function bio:playNewAnimation(actionId)
     --draw
     local x,y =self:getMainPosition()
     self:setPosition(x,y)
     self:stopAllActions()
-    GFArmaturePlayAction(self,self.staticId,self.state,1,nil,nil,nil)
-    self:getAnimation():setMovementEventCallFunc(self.onAnimationMovementEvent)
-    self:getAnimation():setFrameEventCallFunc(self.onBoneFrameEvent)
+    GFArmaturePlayAction(self,self.staticId,self.state,actionId,nil,nil,nil)
+    self:restorePresetDirection()
+
+    --停掉下帧回调(蛋疼的写法)
+    for k,v in pairs(self.onceSchedulerIds) do
+        cc.Director:getInstance():getScheduler():unscheduleScriptEntry(v)
+        self.onceSchedulerIds[k] = nil
+    end
+
+    
+    --动画监听回调
+    --整体动画回调
+    --@param owner 所属者
+    --@param movementType 1-非循环动画播放结束,2-循环动画每次动画播放结束
+    --@param movementId 动画标识str
+    local function onAnimationMovementEvent(owner,movementType,movementId)
+        if movementType==1 then
+            print("movementEvent,movementType=",movementType,"movementId=",movementId,"bioState=",self.state)
+            if self.state==g_bioStateType.attackReady or self.state==g_bioStateType.attacking or self.state==g_bioStateType.attackEnd then
+                --下一帧切换动作，防止即时删除当前动作造成上层循环指针野掉
+                local function timingEnter()
+                    self.bAttackAnimOver = true
+                    self:skillObjFinish() 
+                    self:restoreXMoveState()
+                    self:clearOrderQue()
+                    if self.onceSchedulerIds[1] then
+                        cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.onceSchedulerIds[1])
+                    end
+                end
+                self.onceSchedulerIds[1] = cc.Director:getInstance():getScheduler():scheduleScriptFunc(timingEnter, 0, false)
+            end
+        end
+    end
+    self:getAnimation():setMovementEventCallFunc(onAnimationMovementEvent)
+
+    --骨骼动画关键帧回调
+    --@param bone 骨骼动画
+    --@param eventName 事件tag
+    --@param originFrameIndex 预定的触发事件的帧数
+    --@param currentFrameIndex 实际触发时的帧数，特殊情况下由丢帧引起的实际触发帧数大于预定帧数
+    local function onBoneFrameEvent(bone,eventName,originFrameIndex,currentFrameIndex)
+        print("frameEvent,eventName=",eventName,"bioState=",self.state)
+        if self.state==g_bioStateType.attackReady or self.state==g_bioStateType.attacking then
+            if eventName=="attacking" then
+                self:enterNextState(g_bioStateType.attacking)
+            elseif eventName=="attackEnd" then
+                --下帧回调
+                local function nextFrameFunc()
+                    --self:skillObjFinish() 
+                    self:enterNextState(g_bioStateType.attackEnd)
+                    self:runNextAttackOrder() 
+
+                    if self.onceSchedulerIds[2] then
+                        cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.onceSchedulerIds[2])
+                    end
+                end
+                self.onceSchedulerIds[2] = cc.Director:getInstance():getScheduler():scheduleScriptFunc(nextFrameFunc, 0, false)
+            else
+            --通知技能那边的事件
+                if self.skillObj~=nil then
+                    self.skillObj:eventHandler(bone,eventName,originFrameIndex,currentFrameIndex)
+                end
+            end
+        end
+    end
+    self:getAnimation():setFrameEventCallFunc(onBoneFrameEvent)
+
 end
 
 --进入下一个指定状态
-function bio:enterNextState(state)
+function bio:enterNextState(state,skillId)
     local bSuccess = false
 
     --通过当前状态和下一个状态组成调用的函数名
@@ -418,10 +701,23 @@ function bio:enterNextState(state)
     if changeFunc~=nil then
         bSuccess = changeFunc(self)
     end
-    print("funcName=",funcName,"changeFunc=",changeFunc,"bSuccess=",bSuccess)
+    print("funcName=",funcName,"changeFunc=",changeFunc,"bSuccess=",bSuccess," actionId=",actionId)
 
     if bSuccess then
-        self:playNewAnimation() 
+        --告诉服务器
+        if not self.bChangStateByServer then
+            self:sendSeverBioState()
+        end
+        --替换动画
+        if self.state~=g_bioStateType.attacking and self.state~=g_bioStateType.attackEnd then
+            local actionId = nil
+            if skillId~=nil then
+                --调用skill接口
+                self.skillObj = skill:create(self,skillId,self.sceneManagement)
+                actionId = skillData:getBioArmatureIdBySkillId(skillId)
+            end
+            self:playNewAnimation(actionId) 
+        end
     end
 
     return bSuccess 
@@ -443,11 +739,11 @@ end
 function bio:setFlipX(bFlipX)
     if bFlipX then
         if self:getScaleX()>0 then
-            self:setScaleX(self:getScaleX()*-1)
+            self:setScaleX(-1*self:getScaleX())
         end
     else
         if self:getScaleX()<0 then
-            self:setScaleX(self:getScaleX()*-1)
+            self:setScaleX(-1*self:getScaleX())
         end 
     end
 end
@@ -461,28 +757,60 @@ function bio:movingOnCode(dt)
 
     x = x + vx*dt
     y = y + vy*dt
-    
     local tempMiny = self.sceneLandHeight --人物最低的y
 
+    if self.moveDisx>0 or self.moveDisy>0 then
+        local disx = vx*dt
+        local disy = vy*dt
 
-    if self.state==g_bioStateType.jumpUp then
-        if y>=self.jumpHeight+tempMiny then
-            y = self.jumpHeight+tempMiny
-            self:setPosition(x,y)
-            self:enterNextState(g_bioStateType.jumpDown)
-            return
+        self.moveDisx = self.moveDisx - math.abs(disx) 
+        self.moveDisy = self.moveDisy - math.abs(disy)
+
+
+        if self.moveDisx<=0 then self.moveDisx = 0 end
+        if self.moveDisy<=0 then 
+            if self.vy>0 then
+                y = y+self.moveDisy
+                self.moveDisy =  math.abs(y - tempMiny)
+                self.vy = -1*self.vy
+            else
+                self.moveDisy = 0
+            end
         end
-    end
-    if self.state==g_bioStateType.jumpDown then
-        if y<=tempMiny then
-            y = tempMiny
-            self:setPosition(x,y)
-            self:enterNextState(self.xMoveState)
-            return
+
+        if self.moveDisx==0 and self.moveDisy==0 then
+            self.vx = 0
+            self.vy = 0
+            if self.state==g_bioStateType.beStrikeFly then
+                y = tempMiny
+                self:setPosition(x,y)
+                self:enterNextState(g_bioStateType.lyingFloor)
+                return
+            end
         end
+        self:setPosition(x,y) 
+
+    else 
+
+        if self.state==g_bioStateType.jumpUp then
+            if y>=self.jumpHeight+tempMiny then
+                y = self.jumpHeight+tempMiny
+                self:setPosition(x,y)
+                self:enterNextState(g_bioStateType.jumpDown)
+                return
+            end
+        end
+        if self.state==g_bioStateType.jumpDown then
+            if y<=tempMiny then
+                y = tempMiny
+                self:setPosition(x,y)
+                self:restoreXMoveState()
+                return
+            end
+        end
+        
+        self:setPosition(x,y) 
     end
-    
-    self:setPosition(x,y) 
 end
 
 --循环更新状态

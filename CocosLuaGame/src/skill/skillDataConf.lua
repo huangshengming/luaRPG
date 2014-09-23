@@ -5,7 +5,7 @@
 -- @copyright usugame
 -- 
 
-require("dataServer.FGDSConfiguration")
+require("staticData.configuration")
 
 local _skillDataConf=nil
 
@@ -25,6 +25,10 @@ function skillDataConf:getInstance()
     return _skillDataConf
 end
 
+function skillDataConf:getTagConfBySkillId(skillId)
+    return g_tSkillData[skillId]
+end
+
 function skillDataConf:getBioArmatureIdBySkillId(skillId)
     return g_tSkillData[skillId].bioArmId
 end
@@ -35,6 +39,10 @@ end
 
 function skillDataConf:getMaxHurtTimesBySkillId(skillId)
     return g_tSkillData[skillId].maxHurtTimes
+end
+
+function skillDataConf:getHurtDeltaTime(skillId)
+    return g_tSkillData[skillId].hurtDeltaTime
 end
 
 return skillDataConf
