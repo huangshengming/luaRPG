@@ -46,7 +46,8 @@ g_tBioDatas = {
                 "hero_attack1",
                 "hero_attack2",
                 "hero_attack3",
-                "hero_attack4"
+                "hero_attack4",
+                "hero_attack5"
             },
             [5] = "hero_beHit",
             [6] = "hero_jump",
@@ -58,7 +59,8 @@ g_tBioDatas = {
 --effect静态id
 g_tEffectId ={
         [1] = {name = "effect1",path = "effect/effect1/effect1.ExportJson"},
-        [2] = {name = "effect2",path = "effect/effect2/effect2.ExportJson"}
+        [2] = {name = "effect2",path = "effect/effect2/effect2.ExportJson"},
+        [3] = {name = "sjEffect",path = "effect/sjEffect/sjEffect.ExportJson"}
 }
 
 --json资源类型

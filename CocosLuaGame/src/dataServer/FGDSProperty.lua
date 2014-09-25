@@ -172,7 +172,7 @@ function BioProperty:judgeNextStatus(sType,hsMax,defense,zero)
 	   if not hsMax and zero and not defense then
             nextStatus = g_bioStateType.standing
        elseif hsMax then
-       --     nextStatus = g_bioStateType.lyingFly
+            nextStatus = g_bioStateType.lyingFly
        end
 	end
     
@@ -291,7 +291,7 @@ end
 ---
 -- 生物类 碰撞检测 受击者的相关处理
 -- @param skillId 技能ID
-function BioProperty:goalHandle(skillId,attackDynamicId)
+function BioProperty:goalHandle(skillId,attackDynamicId,faceDirection,moveDirection)
     print("fy-- 碰撞 受击者 技能ID / 攻击者ID ",skillId,attackDynamicId)
     if not g_tSkillData[skillId] then return end
     
@@ -306,7 +306,7 @@ function BioProperty:goalHandle(skillId,attackDynamicId)
         self:deathHandle()
         
         self:setHp(nowHp)
-        self:sendDamage(attackDynamicId,g_tSkillData[skillId].damage,0,skillId)  
+        self:sendDamage(attackDynamicId,g_tSkillData[skillId].damage,0,skillId,faceDirection,moveDirection)  
     else
         
         self.hs.current = self.hs.current + g_tSkillData[skillId].hardStraightness
@@ -319,6 +319,8 @@ function BioProperty:goalHandle(skillId,attackDynamicId)
         dl.damage = g_tSkillData[skillId].damage
         dl.dType = 0
         dl.skillId = skillId 
+        dl.faceDirection = faceDirection
+        dl.moveDirection = moveDirection
         table.insert(self.damageList,dl) 
    --     self:sendDamage(attackDynamicId,g_tSkillData[skillId].damage,0,skillId)
     end 
@@ -424,7 +426,7 @@ function BioProperty:loop()
 --        print("fy-- hs tick2 硬直大于防御值",self.hs.current,self.statusType)
         if self.statusType == 1 then
              local nextS = self:judgeNextStatus(self.statusType,false,true,false)
-   --         print("fy-- hs tick2 硬直大于防御值 当前硬直/硬直类型/下一个状态",self.hs.current,self.statusType,nextS,self.dynamicId)
+            print("fy-- hs tick2 硬直大于防御值 当前硬直/硬直类型/下一个状态",self.hs.current,self.statusType,nextS,self.dynamicId)
              if nextS then
                 self:setStatus(nextS,true)
              end
@@ -450,7 +452,7 @@ end
 function BioProperty:sendDamageList()
 	for i,v in ipairs(self.damageList or {}) do
 	   print("fy-- 分发处理伤害信息 ",#self.damageList,i)
-	   self:sendDamage(v.attackDynamicId,v.damage,v.dType,v.skillId)
+        self:sendDamage(v.attackDynamicId,v.damage,v.dType,v.skillId,v.faceDirection,v.moveDirection)
 	   table.remove(self.damageList,i)
 	   break
 	end
@@ -467,13 +469,15 @@ function BioProperty:sendStatus(status)
 end
 
 --damage
-function BioProperty:sendDamage(attackDynamicId,damage,dType,skillId)
+function BioProperty:sendDamage(attackDynamicId,damage,dType,skillId,faceDirection,moveDirection)
     local prot = GFProtGet(ProtBioDamage_S2C_ID)
     prot.dynamicId = self.dynamicId
     prot.attackDynamicId = attackDynamicId
     prot.damage = damage
     prot.dType = dType
     prot.skillId = skillId
+    prot.faceDirection = faceDirection            
+    prot.moveDirection = moveDirection
     GFRecOneMsg(prot)
     print("fy-- S2C伤害变化",damage)
 end

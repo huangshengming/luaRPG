@@ -252,16 +252,15 @@ function GFSetEditerColliderVisible(armature,visible)
     if boneDic ~= nil then 
         for key,bone in pairs(boneDic) do
             local DDList = bone:getDisplayManager():getDecorativeDisplayList()
-            if #DDList==0 then
-                print(" DDLIST IS ZERO")
-            end
             if visible == true then
                 for i,v in pairs(DDList) do
                     v:getDisplay():setVisible(true)
+                    v:getDisplay():updateTransform()
                 end                
             else
                 for i,v in pairs(DDList) do
                     v:getDisplay():setVisible(false)
+                    v:getDisplay():updateTransform()
                 end           
             end
         end
@@ -272,9 +271,6 @@ function GFSetEditerColliderVisible(armature,visible)
     if boneDic ~= nil then 
         for key,bone in pairs(boneDic) do
             local DDList = bone:getDisplayManager():getDecorativeDisplayList()
-            if #DDList==0 then
-                print(" DDLIST IS ZERO")
-            end
             if visible == true then
                 for i,v in pairs(DDList) do
                     v:getDisplay():setVisible(true)
@@ -326,47 +322,6 @@ function GFPlayEffect(effect,effectId)
     GFSetEditerColliderVisible(effect,g_bIsShowEditerCollider)
 end
 
-
---function GFPlaySkillBind(bio,skillId,id1,id2,id3)
---    if bio==nil then
---        print("in GFPlaySkilBind: bio is nil!")
---        return false
---    end
---
---    --初始化前清空所有事件
---    --    bio:getAnimation():setFrameEventCallFunc()
---    --    bio:getAnimation():setMovementEventCallFunc()
---
---    --如果技能是与人物绑定的，则应该由人物来播放
---    if g_tSkillTypeMatch[skillId] == g_tSkillType.independent then
---        print("skillId = "..skillId.."is independent!")
---        return
---    end
---
---    --根据skillId加载json资源
---    local armatureName = GFLoadArmatureJson(skillId,g_tJsonType.skill)
---    --初始化armature
---    if armatureName==nil then
---        return false
---    end
---    bio:init(armatureName)
---
---    --取得所有动画
---    local animation = bio:getAnimation()
---    if animation==nil then
---        print("in GFPlaySkillBind: animation is nil!")
---        return false
---    end
---
---    animation:play(g_tSkillAnimationName[skillId])
---
---    --保存对碰撞骨骼的引用
---    bio._beHitBoneList = GFGetBeHitBones(bio)
---    bio._hitBoneList = GFGetHitBones(bio)
---
---    --默认不显示碰撞区域图
---    GFSetEditerColliderVisible(bio,g_bIsShowEditerCollider)
---end
 
 
 

@@ -33,7 +33,7 @@ function sceneManagement:recMessageProc(prot)
      
      
         for k,v in pairs(prot.instanceList or {}) do
-            local bioClass= require("bio.bio")
+            local bioClass= require("bio.monster")
             local roleClass = require("bio.role")
             local bio=nil
             

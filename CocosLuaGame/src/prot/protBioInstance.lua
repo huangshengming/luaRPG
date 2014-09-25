@@ -100,6 +100,8 @@ protDict[ProtBioCollision_C2S_ID] = {
     attackerDynamicId = -1,             --攻击者动态ID
     goalDynamicId = -1,                 --被攻击者动态ID
     skillId = -1,                       --技能ID
+    faceDirection = -1,                 --受击后朝向  1 left 2 right
+    moveDirection = -1,                 --移动方向    1 left 2 right
 }
 
 --请求是否可以施放技能
@@ -124,4 +126,6 @@ protDict[ProtBioDamage_S2C_ID] = {
     damage = -1,                        --扣血量
     skillId = -1,                       --被攻击的技能ID
     dType = -1,                         --扣血类型 0常规(技能) 1暴击 2BUFF 
+    faceDirection = -1,                 --受击后朝向  1 left 2 right
+    moveDirection = -1,                 --移动方向    1 left 2 right
 }

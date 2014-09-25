@@ -26,7 +26,7 @@ function bio:ctor(dyId,staticId,name,faction)
     --self.orgPos = cc.p(0,200)                   --人物初始坐标Point
     self.sceneLandHeight = 200                    --场景陆地高，即人物站在地面时的高度
     self.name = name                              --人物名称
-    self.skillBar = {[1]={1,2,3,},[3]={4,}}       --人物技能栏,[技能栏id]={连击1，连击2，...}
+    self.skillBar = {[1]={1,2,3,},[2]={5,},[3]={4,}}       --人物技能栏,[技能栏id]={连击1，连击2，...}
     self.skillBatterCount = 1                     --当前技能连击数
     self.skillIndexUse = nil                      --当前使用技能的技能栏索引
     self.faction = faction                        --生物派别阵营
@@ -40,13 +40,20 @@ function bio:ctor(dyId,staticId,name,faction)
     self.speedWalkVx = 350                        --人物行走x速度，像素每秒
     self.speedRunVx = 620                         --人物跑步x速度，像素每秒
     self.speedJumpVy = 400                        --人物跳跃y速度
-    self.speedBeStrikeFlyVx = 250                 --人物被击飞时的x速度
+    self.speedJumpAy = -1100                        --跳跃加速度
+    --self.speedBeStrikeFlyVy = 400                 --人物被击飞时的x速度
+    self.speedBeStrikeFlyAy = -1360                --击飞状态下的加速度
     self.speedBeHitVx = 80                        --人物受击时的x速度  
     self.jumpHeight = 260                         --惹怒跳起的高度
+    self.lyingFlyHeight = 50                     --躺飞的高度
+    self.lyingFlyLength = 220                    --躺飞的长度
+    self.speedLyingFlyAy = -1400                  --躺飞的加速度
     self.vx = 0
     self.vy = 0
-    self.moveDisx = 0                             --人物需要移动的x距离
-    self.moveDisy = 0                             --人物需要移动的y距离
+    self.ay = 0                                     --y轴加速度
+    self.passiveMoveTime = 0                      --人物被动移动的时间
+    --self.moveDisx = 0                             --人物需要移动的x距离
+    --self.moveDisy = 0                             --人物需要移动的y距离
     self.bAttackAnimOver = false                  --攻击动画是否播放完毕
     self.schedulerId = nil                        --loopUpdate的定时器id
     self.onceSchedulerIds = {}                    --一次性的定时器数组
@@ -154,6 +161,7 @@ function bio:standing_to_walking()
     local success = true
     self.vx = self.speedWalkVx
     self.vy = 0
+    self.ay = 0
     self.state = g_bioStateType.walking
     return success
 end
@@ -162,14 +170,17 @@ function bio:standing_to_running()
     local success = true
     self.vx = self.speedRunVx
     self.vy = 0
+    self.ay = 0
     self.state = g_bioStateType.running
     return success
 end
 
 function bio:standing_to_jumpUp()
     local success = true
+    self.ay = self.speedJumpAy
+    local time = math.sqrt(math.abs(2*self.jumpHeight/self.ay))
     self.vx = 0
-    self.vy = self.speedJumpVy
+    self.vy = math.abs(self.ay*time)
     self.state = g_bioStateType.jumpUp
     return success
 end
@@ -179,6 +190,7 @@ function bio:standing_to_attackReady()
     --
     self.vx = 0
     self.vy = 0
+    self.ay = 0
     self.state = g_bioStateType.attackReady
     self.bAttackAnimOver = false
 
@@ -211,8 +223,10 @@ end
 
 function bio:walking_to_jumpUp()
     local success = true
+    self.ay = self.speedJumpAy
+    local time = math.sqrt(math.abs(2*self.jumpHeight/self.ay))
     self.vx = self.speedWalkVx
-    self.vy = self.speedJumpVy
+    self.vy = math.abs(self.ay*time)
     self.state = g_bioStateType.jumpUp
     return success
 end
@@ -222,14 +236,28 @@ function bio:walking_to_attackReady()
     
     self.vx = 0
     self.vy = 0
+    self.ay = 0
     self.state = g_bioStateType.attackReady
     self.bAttackAnimOver = false
 
     return success
 end
 
+function bio:walking_to_beHit()
+    local success = true
+    self.vx = 0
+    self.vy = 0
+    self.ay = 0
+    self.state = g_bioStateType.beHit
+
+    return success
+end
+
 function bio:walking_to_beStrikeFly()
     local success = true
+    self.vx = 0
+    self.vy = 0
+    self.ay = 0
     self.state = g_bioStateType.beStrikeFly
     
     return success
@@ -240,18 +268,42 @@ function bio:running_to_standing()
     local success = true
     self.vx = 0
     self.vy = 0
+    self.ay = 0
     self.state = g_bioStateType.standing
     return success
 end
 
 function bio:running_to_jumpUp()
     local success = true
+
+    self.ay = self.speedJumpAy
+    local time = math.sqrt(math.abs(2*self.jumpHeight/self.ay))
     self.vx = self.speedRunVx
-    self.vy = self.speedJumpVy
+    self.vy = math.abs(self.ay*time)
     self.state = g_bioStateType.jumpUp
+
     return success
 end
 
+function bio:running_to_beHit()
+    local success = true
+    self.vx = 0
+    self.vy = 0
+    self.ay = 0
+    self.state = g_bioStateType.beHit
+
+    return success
+end
+
+function bio:running_to_beStrikeFly()
+    local success = true
+    self.vx = 0
+    self.vy = 0
+    self.ay = 0
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
 --
 --当前为jumpUp状态时
 function bio:jumpUp_to_walking()
@@ -269,6 +321,16 @@ function bio:jumpUp_to_runnig()
     return success
 end
 
+function bio:jumpUp_to_beStrikeFly()
+    local success = true
+    self.vx = 0
+    self.vy = 0
+    self.ay = 0
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
+
 function bio:jumpUp_to_jumpDown()
     local success = false
 
@@ -276,7 +338,6 @@ function bio:jumpUp_to_jumpDown()
     local tempMiny = self.sceneLandHeight --人物最低的y
     if y==tempMiny+self.jumpHeight then
         success = true
-        self.vy = -1*self.speedJumpVy
         self.state = g_bioStateType.jumpDown
     end
 
@@ -328,6 +389,16 @@ function bio:jumpDown_to_running()
     success = self:jumpDown_to_walking()
     return success
 end
+
+function bio:jumpDown_to_beStrikeFly()
+    local success = true
+    self.vx = 0
+    self.vy = 0
+    self.ay = 0
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
 --
 --当前为attackReady状态
 function bio:attackReady_to_attacking()
@@ -336,6 +407,7 @@ function bio:attackReady_to_attacking()
     return success
 end
 
+--[[
 function bio:attackReady_to_standing()
     local success = false
     if self.bAttackAnimOver then
@@ -368,12 +440,45 @@ function bio:attackReady_to_running()
     end
     return success
 end
+]]
+
+function bio:attackReady_to_beHit()
+    local success = true
+    self:skillObjInterrupt()
+    self.state = g_bioStateType.beHit
+
+    return success
+end
+
+function bio:attackReady_to_beStrikeFly()
+    local success = true
+    self:skillObjInterrupt()
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
 
 --
 --当前为attacking状态
 function bio:attacking_to_attackEnd()
     local success = true
     self.state = g_bioStateType.attackEnd
+    return success
+end
+
+function bio:attacking_to_beHit()
+    local success = true
+    self:skillObjInterrupt()
+    self.state = g_bioStateType.beHit
+
+    return success
+end
+
+function bio:attacking_to_beStrikeFly()
+    local success = true
+    self:skillObjInterrupt()
+    self.state = g_bioStateType.beStrikeFly
+    
     return success
 end
 
@@ -421,6 +526,23 @@ function bio:attackEnd_to_running()
     end
     return success
 end
+
+function bio:attackEnd_to_beHit()
+    local success = true
+    self:skillObjInterrupt()
+    self.state = g_bioStateType.beHit
+
+    return success
+end
+
+function bio:attackEnd_to_beStrikeFly()
+    local success = true
+    self:skillObjInterrupt()
+    self.state = g_bioStateType.beStrikeFly
+    
+    return success
+end
+
 --
 --当前为beHit状态
 function bio:beHit_to_standing()
@@ -428,6 +550,7 @@ function bio:beHit_to_standing()
     self.vx = 0
     self.vy = 0
     self:clearOrderQue()
+    self.xMoveState = g_bioStateType.standing
     self.state = g_bioStateType.standing
     return success
 end
@@ -447,6 +570,7 @@ function bio:beStrikeFly_to_lyingFloor()
         success = true
         self.vx = 0
         self.vy = 0
+        self.ay = 0
         self.state = g_bioStateType.lyingFloor
     end
     
@@ -458,11 +582,41 @@ function bio:lyingFloor_to_standing()
     local success = true
     self.vx = 0
     self.vy = 0
+    self.ay = 0
     self:clearOrderQue()
+    self.xMoveState = g_bioStateType.standing
     self.state = g_bioStateType.standing
     return success
 end
 
+function bio:lyingFloor_to_lyingFly()
+    local success = true
+    --[[
+    self.ay = self.speedLyingFlyAy
+    local time = math.sqrt(math.abs(2*self.lyingFlyHeight/self.ay))
+    self.vx = self.lyingFlyLength/time
+    self.vy = math.abs(self.ay*time)
+    ]]
+    self.state = g_bioStateType.lyingFly
+
+    return success
+end
+
+--
+--当前为lyingFly状态
+function bio:lyingFly_to_lyingFloor()
+    local success = false
+    local x, y = self:getPosition()
+    if y==self.sceneLandHeight then
+        success = true
+        self.vx = 0
+        self.vy = 0
+        self.ay = 0
+        self.state = g_bioStateType.lyingFloor
+    end
+    
+    return success
+end
 
 
 --********end**********
@@ -571,43 +725,56 @@ function bio:recMessageProc(prot)
         self.bChangStateByServer = false
     elseif prot.protId==ProtBioDamage_S2C_ID and self.dyId==prot.dynamicId then
         local skillId = prot.skillId
+        local faceDir = prot.faceDirection
+        local moveDir = prot.moveDirection      --移动方向,1 left 2 right
         local atker = nil
         local dirCoe = -1 --方向正负系数
+        if faceDir==moveDir then
+            dirCoe = 1
+        end
+        local mianBoneX,mainBoneY = self:getMainPosition()
 
         if self.sceneManagement then
             atker = self.sceneManagement:getBioTag(prot.attackDynamicId)
         end
-        if atker~=nil then
-            local dir = g_bioDirectionType.right
-            if atker:getPositionX()<self:getPositionX() then
-                dir = g_bioDirectionType.left
-            end
-            --调整受击者朝向
-            self:setDirection(dir)
-        end
+        --调整受击者朝向
+        self:setDirection(faceDir)
 
         local tagSkill = skillData:getTagConfBySkillId(skillId)
         if tagSkill~=nil then
             local coe = c_standForceCoe
             local vx = self.speedBeHitVx
             local vy = 0
+            local ay = 0 
             local moveDisx,moveDisy = 0,0
+            local time = 0
             if self.state==g_bioStateType.beStrikeFly then
                 coe = c_flyForceCoe
-                vx = self.speedBeStrikeFlyVx
                 moveDisy = tagSkill.forceDis[2]*coe
+                moveDisx = tagSkill.forceDis[1]*coe
+                ay = self.speedBeStrikeFlyAy
+            elseif self.state==g_bioStateType.lyingFly then
+                moveDisy = self.lyingFlyHeight
+                moveDisx = self.lyingFlyLength
+                ay = self.speedLyingFlyAy
+            else
+                moveDisx = tagSkill.forceDis[1]*coe
             end
-            moveDisx = tagSkill.forceDis[1]*coe
-            if moveDisy>0 then 
-                local time = moveDisx/vx
-                vy = moveDisy/(time*0.5)
+            if moveDisy>0 and ay~=0 then 
+                local upTime = math.sqrt(math.abs(2*moveDisy/ay))
+                vy = math.abs(ay*upTime)
+                local downTime = math.sqrt(math.abs(2*(moveDisy+self:getPositionY()-self.sceneLandHeight)/ay))
+                time = upTime + downTime
+                vx = moveDisx/time
+            elseif moveDisx>0 then
+                time = moveDisx/vx
             end
             self.vx = vx*dirCoe
             self.vy = vy
-            self.moveDisx = moveDisx
-            self.moveDisy = moveDisy
+            self.ay = ay
+            self.passiveMoveTime = time
 
-        print("MMM_dyId=",prot.dynamicId,"skillId=",skillId,"moveDisx,moveDisy=",self.moveDisx,self.moveDisy,"vx,vy=",self.vx,self.vy)
+        print("MMM_dyId=",prot.dynamicId,"skillId=",skillId,"vx,vy=",self.vx,self.vy,"moveTime=",time)
 
         else
             print("[erro]skill配置未找到！")
@@ -701,7 +868,9 @@ function bio:enterNextState(state,skillId)
     if changeFunc~=nil then
         bSuccess = changeFunc(self)
     end
-    print("funcName=",funcName,"changeFunc=",changeFunc,"bSuccess=",bSuccess," actionId=",actionId)
+    if self.dyId==1000 then
+        print("funcName=",funcName,"changeFunc=",changeFunc,"bSuccess=",bSuccess," actionId=",actionId)
+    end
 
     if bSuccess then
         --告诉服务器
@@ -752,48 +921,41 @@ end
 function bio:movingOnCode(dt)
     local vx = self.vx
     local vy = self.vy
+    local ay = self.ay
+    local vty = vy + ay*dt
     local x, y = self:getPosition()
     if self.direction==g_bioDirectionType.left then vx = -1*vx end
 
-    x = x + vx*dt
-    y = y + vy*dt
+    if vy>0 and vty<=0 then 
+        vty = 0
+    end
+
+    local disx = vx*dt
+    local disy = (vy+vty)/2*dt
+    x = x + disx
+    y = y + disy
+
+    self.vy = vty
+
     local tempMiny = self.sceneLandHeight --人物最低的y
 
-    if self.moveDisx>0 or self.moveDisy>0 then
-        local disx = vx*dt
-        local disy = vy*dt
-
-        self.moveDisx = self.moveDisx - math.abs(disx) 
-        self.moveDisy = self.moveDisy - math.abs(disy)
-
-
-        if self.moveDisx<=0 then self.moveDisx = 0 end
-        if self.moveDisy<=0 then 
-            if self.vy>0 then
-                y = y+self.moveDisy
-                self.moveDisy =  math.abs(y - tempMiny)
-                self.vy = -1*self.vy
-            else
-                self.moveDisy = 0
-            end
-        end
-
-        if self.moveDisx==0 and self.moveDisy==0 then
+    if self.passiveMoveTime>0 then
+        self.passiveMoveTime = self.passiveMoveTime - dt
+        if self.passiveMoveTime<=0 then
+            self.passiveMoveTime = 0
+            y = tempMiny
+            self:setPosition(x,y) 
             self.vx = 0
             self.vy = 0
-            if self.state==g_bioStateType.beStrikeFly then
-                y = tempMiny
-                self:setPosition(x,y)
+            self.ay = 0
+            if self.state==g_bioStateType.beStrikeFly or self.state==g_bioStateType.lyingFly then
                 self:enterNextState(g_bioStateType.lyingFloor)
-                return
             end
+            return
         end
-        self:setPosition(x,y) 
-
     else 
-
         if self.state==g_bioStateType.jumpUp then
-            if y>=self.jumpHeight+tempMiny then
+            if self.vy==0 then
                 y = self.jumpHeight+tempMiny
                 self:setPosition(x,y)
                 self:enterNextState(g_bioStateType.jumpDown)
@@ -803,20 +965,26 @@ function bio:movingOnCode(dt)
         if self.state==g_bioStateType.jumpDown then
             if y<=tempMiny then
                 y = tempMiny
+                self.ay = 0
                 self:setPosition(x,y)
                 self:restoreXMoveState()
                 return
             end
         end
         
-        self:setPosition(x,y) 
     end
+    self:setPosition(x,y) 
+end
+
+function bio:aiExecute(dt)
+    -- body
 end
 
 --循环更新状态
 function bio:loopUpdate(dt)
     self:movingOnCode(dt)
     self:correctionPosition()
+    self:aiExecute(dt)
 end
 
 

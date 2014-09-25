@@ -22,11 +22,10 @@ g_gestureType=
 g_attackOrderType = {
     click = 1,
     down = 2,
-    left = 3,
-    right = 4,
-    runClick = 5,
-    jumpClick = 6,
-    jumpDown = 7,
+    onrush = 3, --前冲
+    runClick = 4,
+    jumpClick = 5,
+    jumpDown = 6,
 
 }
 --生物状态 用于状态机处理
@@ -105,3 +104,4 @@ g_protType=
 
 
 g_playerObj=nil
+nil

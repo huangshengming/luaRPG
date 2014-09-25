@@ -97,7 +97,7 @@ function skillEffect:onBoneFrameEvent(bone,eventName,originFrameIndex,currentFra
     --nextEff|id1,id2
     --skillEnd
     if eventName == "skillEnd" then
-        --TODO
+        --TODO 技能结束时会不会有其他操作？
         return
     end
     local eventData = FGUtilStringSplit(eventName,"|")
@@ -123,7 +123,6 @@ function skillEffect:nextEffectActive(nextEffId)
     end
 end
 
-
 --update碰撞检测
 function skillEffect:updateCollider()
     --特效总是与对方阵营生物进行碰撞
@@ -131,9 +130,16 @@ function skillEffect:updateCollider()
     for k,bioObj in pairs(bioList) do
         if GFIsHostileByFaction(bioObj:getFaction(),self._bioFaction) then
             local bIsCollided = GFColliderForSkill(self,bioObj)
+            local targetFaceDir = 1 --1=left，2＝right
+            local targetMoveDir = 2
+            --TODO 根据技能效果决定target移动方向
+            if self._direction == g_bioDirectionType.left then
+                targetFaceDir = 2
+                targetMoveDir = 1
+            end
             if bIsCollided then
                 --通知有效碰撞发生 
-                self:sendCollideProt(self._bioId,bioObj:getDynamicId(),self._skillId)
+                self:sendCollideProt(self._bioId,bioObj:getDynamicId(),self._skillId,targetFaceDir,targetMoveDir)
             end
         end 
     end
@@ -143,11 +149,13 @@ function skillEffect:getCollideObj()
     return self
 end
 
-function skillEffect:sendCollideProt(castBioId,targetObjId,skillId)
+function skillEffect:sendCollideProt(castBioId,targetObjId,skillId,targetFaceDir,targetMoveDir)
     local prot = GFProtGet(ProtBioCollision_C2S_ID)
     prot.attackerDynamicId  = castBioId
     prot.goalDynamicId      = targetObjId
     prot.skillId            = skillId
+    prot.faceDirection      = targetFaceDir
+    prot.moveDirection      = targetMoveDir
     GFSendOneMsg(prot)
 end
 

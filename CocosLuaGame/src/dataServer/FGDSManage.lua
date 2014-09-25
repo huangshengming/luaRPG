@@ -72,7 +72,7 @@ function FGDSManage:sendMessageProc(prot)
 	elseif prot.protId == 9007 then
 	   -- 碰撞检测
         print("fy-- C2S Collision ",prot.attackerDynamicId,prot.goalDynamicId,prot.skillId)
-        self:collision(prot.attackerDynamicId,prot.goalDynamicId,prot.skillId)
+        self:collision(prot.attackerDynamicId,prot.goalDynamicId,prot.skillId,prot.faceDirection,prot.moveDirection)
          
 	   return true 
     end
@@ -176,7 +176,7 @@ end
 
 
 --技能检测 
-function FGDSManage:collision(attacker,goal,skillId)
+function FGDSManage:collision(attacker,goal,skillId,faceDirection,moveDirection)
 	local a = self:getInstanceByDynamicId(attacker)
 	local g = self:getInstanceByDynamicId(goal)
 	print("fy-- 管理碰撞 分发",a,g)
@@ -184,7 +184,7 @@ function FGDSManage:collision(attacker,goal,skillId)
        a:attackHandle(skillId)
 	end
 	if g ~= nil then
-        g:goalHandle(skillId,attacker)
+        g:goalHandle(skillId,attacker,faceDirection,moveDirection)
     end
 end
 

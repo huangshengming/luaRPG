@@ -18,9 +18,16 @@ function SceneView:createScene(id)
         print("create scene failed")
         return nil
     end
-
     scene:addChild(scene:createLayer(id))
+
+    UILayer = require("sceneManagement.MenuLayer"):createLayer()
+    scene:addChild(UILayer)
+    if not g_bIsShowUI then
+        UILayer:setVisible(false)
+    end
+
     return scene
+    
 end
 ---
 --初始化
@@ -51,7 +58,7 @@ function SceneView:ctor()
             -- loading层           
             -- print("加载资源")
         elseif "cleanup" == event then
-            print("----退出----")
+            print("----退出----  ( Log Position: SceneView.lua --- 56 by zx )")
             cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.scheduleId)
         end
     end
@@ -65,7 +72,7 @@ function SceneView:createLayer(id)
 
     self.bg_near = self:AddNearBg()
     if not self.bg_near then
-        print("近景创建失败")
+        print("近景创建失败  ( Log Position: SceneView.lua --- 70 by zx )")
     else
         --add 9.12 添加传送门层
         --self.bg_near:addChild(self:createPorsLayer(),0)
@@ -73,7 +80,7 @@ function SceneView:createLayer(id)
 
     self.bg_far = self:AddFarBg()
     if not self.bg_far then
-        print("远景创建失败")
+        print("远景创建失败( Log Position: SceneView.lua --- 78 by zx )")
     end
     
     ---
@@ -153,10 +160,12 @@ function SceneView:createLayer(id)
             ---
             -- 9.17 传送门碰撞
             --self.portalsLayer:IsCollide(self.hero)
+            
         else
-            print("update() ---> Hero对象为空")
+            print("update() ---> Hero对象为空 ( Log Position: SceneView.lua --- 160 by zx )")
             cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.scheduleId)
         end
+        
     end
     self.scheduleId = cc.Director:getInstance():getScheduler():scheduleScriptFunc(update, 0, false) 
 
@@ -177,32 +186,41 @@ function SceneView:createLayer(id)
         end
     end
     showRect:registerScriptTapHandler(p)
-     showRect:setGlobalZOrder(10)
+    showRect:setGlobalZOrder(10)
 
-     local menu = cc.Menu:create(showRect)
+    --UI 显示
+    local showUI = cc.MenuItemImage:create("menu1.png","menu1.png")
+    showUI:setPosition(200,0)
+    local function pp()
+        
+        if true == g_bIsShowUI then
+            UILayer:setVisible(false)
+            g_bIsShowUI=false
+        else
+            UILayer:setVisible(true)
+            g_bIsShowUI=true
+        end
+    end
+    showUI:registerScriptTapHandler(pp)
+    showUI:setGlobalZOrder(10)
+
+     local menu = cc.Menu:create(showRect,showUI)
      menu:setPosition(480,600)
     self.layer:addChild(menu)
     ---
 
+
+    --- 伤害 test OK
+    -- 2014年09月20日14:23:55 by zx
+
+    local t = require("sceneManagement.hurtNumber"):createNumber(showRect,100,false)
+    t:runCustomAction()
+    local tt = require("sceneManagement.hurtNumber"):createNumber(showRect,300,true)
+    tt:runCustomAction()
+
+    ----2014-09-24 20:06:38 by zx
+    require("sceneManagement/preloadLayers"):PreLoadLayer(self.layer,self.visibleSize)
     
-    --- 2014-09-18 20:17:51 by zx  菜单蒙版-屏蔽层测试
-    --[[local l = require("sceneManagement/selectLayers/layerBase"):createLayer(100,self.visibleSize)
-    require("sceneManagement/selectLayers/layerBase"):setLayerVisible(false) 
-    self.layer:addChild(l)
-
-    local sp = cc.MenuItemImage:create("icon.png", "icon.png")
-    sp:setPosition(0,0)
-    local function p()
-        print("snmlkdshnjknglsgksfjebvkjdxglkszjgkedxjnhlrdxhb")
-        require("sceneManagement/selectLayers/layerBase"):setLayerVisible(true)
-        require("sceneManagement/selectLayers/layerBase"):GetListener():setEnabled(true)
-        require("sceneManagement/selectLayers/layerBase"):GetListener():setSwallowTouches(true)
-    end
-    sp:registerScriptTapHandler(p)
-    local menu = cc.Menu:create(sp)
-    menu:setPosition(300,300)
-    self.layer:addChild(menu)]]
-
     return self.layer
 end
 

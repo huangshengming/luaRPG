@@ -86,6 +86,23 @@ function FGGetTickCountMS()
 	return stamp
 end
 
+-- 获取随机数
+function FGRandom(num)
+    local rnd = capi_random(num)
+    return rnd
+end
+
+-- 获取0到1之间的随机数
+function FGRandom_0_1()
+    local rnd = capi_random_0_1()
+    return rnd
+end
+
+-- 获取-1到1之间的随机数
+function FGRandom_minus1_1()
+    local rnd = capi_random_minus1_1()
+    return rnd
+end
 
 function GFIsHostileByFaction(faction1,faction2)
 

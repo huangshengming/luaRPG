@@ -41,8 +41,3 @@ function GFColliderForSkill(skillObj,targetObj)
     return false
 end
 
---[[
-function GFColliderForRect(rectA,rectB)
-    return cc.rectIntersectsRect(rectA,rectB)
-end
-]]

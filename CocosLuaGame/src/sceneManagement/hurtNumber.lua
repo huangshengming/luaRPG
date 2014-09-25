@@ -61,12 +61,12 @@ function HurtNumber:runCustomAction()
 
 	    local function hurtCallBack()
 	    	if HurtNumber.hurt then
-	    		print("移除了伤害")
+	    		print("移除了伤害。 ( Log Position: hurtNumber.lua -- 64 by zx)")
 	        	HurtNumber.hurt:removeFromParent()
 	    	end
 	    end
 
-		HurtNumber.hurt:runAction(cc.Sequence:create( cc.Spawn:create(bezierBy, fadeIn,scale) , 
+		HurtNumber.hurt:runAction(cc.Sequence:create( cc.Spawn:create(bezierBy, fadeIn, scale ) , 
 													  fadeOut, 
 													  cc.CallFunc:create(hurtCallBack)
 													)

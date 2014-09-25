@@ -5,7 +5,7 @@
 --暂时模拟副本生物配置表
 --副本不同关卡
 g_bioConfiguration = {
-    [1] = { 1,100,},
+    [1] = { 1,100,101,},
     [2] = { },
     [3] = { },
 }
@@ -17,7 +17,7 @@ g_bioConfiguration = {
 g_bioProperty = {
     [1] = {staticId = 1, hp = 5000, mp = 1000, positionX = 200, positionY = 200, 
             lead = 1, faction = 1,status = 1,hardStraight = {1,2,3,4,},},
-    [100] = {staticId = 100, hp = 50000000, mp = 100, positionX = 2200, positionY = 200,
+    [100] = {staticId = 100, hp = 50000000, mp = 100, positionX = 1200, positionY = 200,
             lead = 0, faction = 2, status = 1,hardStraight = {1,2,3,4,},},
     [101] = {staticId = 101, hp = 50000000, mp = 100, positionX = 800, positionY = 200,
             lead = 0, faction = 2, status = 1,hardStraight = {1,2,3,4,},},
@@ -39,9 +39,11 @@ g_tHardStraight = {
 
 --暂时模拟 技能伤害及硬直度增加值 key为技能ID
 g_tSkillData = {
-    [1] = { damage = 20, hardStraightness = 40, bioArmId = 1, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={400,130,},},
-    [2] = { damage = 30, hardStraightness = 40, bioArmId = 2, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={300,240,},},
-    [3] = { damage = 40, hardStraightness = 60, bioArmId = 3, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={500,150,},},
+    [1] = { damage = 20, hardStraightness = 20, bioArmId = 1, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={180,100,},},
+    [2] = { damage = 20, hardStraightness = 30, bioArmId = 2, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={150,180,},},
+    [3] = { damage = 30, hardStraightness = 90, bioArmId = 3, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={330,130,},},
+    [4] = { damage = 80, hardStraightness = 120, bioArmId = 4, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={280,200,},},
+    [5] = { damage = 30, hardStraightness = 120, bioArmId = 5, effId = -1, maxHurtTimes = 1, hurtDeltaTime = 50, forceDis={30,300,},},
 }
 
 --不同状态对应不同的硬直 1-4对应怪物属性表里硬直度 而非直接对应g_tHardStraight

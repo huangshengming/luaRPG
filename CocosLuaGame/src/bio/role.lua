@@ -35,11 +35,13 @@ function role:setLeftControlOrder(xState,dir)
 end
 
 --设置屏幕右部控制区域攻击命令
-function role:setRightControlAttackOrder(order)
+function role:setRightControlAttackOrder(order,dir)
     local skillIndex = order
     
     local success = self:attack(skillIndex)
-    if not success then
+    if success then
+        self:setDirection(dir)
+    else    
         table.insert(self.attackOrderQue,order)
     end
 end
