@@ -1,23 +1,41 @@
+-- 手势管理模块
+-- @module GestureManager
+-- @author sxm
+-- @copyright usugame
 
 require "Cocos2d"
 
+-- 边界枚举表
+-- @table side
+-- @param left 左边
+-- @param right 右边
 local side = {
 	left = 1,
 	right = 2
 }
 
+-- 操作类型枚举表
+-- @param click 单击
+-- @param slide 滑动
+-- @param doubleclick 双击
 local operation = {
 	click = 1,
 	slide = 2,
 	doubleclick = 3
 }
 
+
+-- 手势管理者单例
 local GestureManager_shared_instance = nil
 
+-- 手势管理类
+-- @type GestureManager Layer
 local GestureManager = class("GestureManager", function ()
 	return cc.Layer:create()
 end)
 
+-- 获取手势管理者单例函数
+-- @return GestureManager_shared_instance 手势管理者单例
 function GestureManager:getInstance()
 	if GestureManager_shared_instance == nil then
 		GestureManager_shared_instance = GestureManager.new()
@@ -26,6 +44,7 @@ function GestureManager:getInstance()
 	return GestureManager_shared_instance
 end
 
+-- 手势管理类初始化回调
 function GestureManager:ctor()
 	local sz = cc.Director:getInstance():getWinSize()
 	self:setContentSize(sz)
@@ -36,8 +55,8 @@ function GestureManager:ctor()
 	self._nAxis = (-dx + self._nSepa * 0.5) / 1.5
 	self._nLeftTL = cc.p(-dx + 50, sz.height + dy - 100)
 	self._nLeftBR = cc.p(self._nSepa, -dy + 100)
-	self._nDeltaX = 50
-	self._nDeltaY = 50
+	self._nDeltaX = 80
+	self._nDeltaY = 80
 	self._nRightOperation = operation.click
 	self._nLeftOperation = operation.click
 	self._nLeftLastClickTick = 0
@@ -73,6 +92,7 @@ function GestureManager:ctor()
     self:createRenderObject()
 end
 
+-- 渲染对象创建
 function GestureManager:createRenderObject()
     self._rFingerprintG = cc.Sprite:create("green_fingerprint.png")
     self._rFingerprintR = cc.Sprite:create("red_fingerprint.png")
@@ -94,6 +114,8 @@ function GestureManager:createRenderObject()
     self._rHyperbola:setVisible(false)
 end
 
+-- 创建手指离开动画
+-- @param touch 触摸对象
 function GestureManager:createFingerExitAnimation(touch)
     local _side = nil
     if touch == self._uLeftTouch then
@@ -120,15 +142,22 @@ function GestureManager:createFingerExitAnimation(touch)
     self:addChild(runNode)
 end
 
+-- 设置手势输入回调模块和回调函数
+-- @param _module 模块
+-- @param _handler 回调函数
 function GestureManager:setHandler(_module, _handler)
 	self._tModule = _module
 	self._fHandler = _handler
 end
 
+-- 设置右边屏幕手势是否可以输入
+-- @param bEnable true启用，false禁用
 function GestureManager:setRightTouchEnable(bEnable)
 	self._bRightTouchEnable = bEnable
 end
 
+-- 边界测试
+-- @param touch 触摸对象
 function GestureManager:sideTest(touch)
 	local pos = self:convertToNodeSpace(touch:getLocation())
 	if pos.x < self._nSepa then
@@ -138,6 +167,9 @@ function GestureManager:sideTest(touch)
 	end
 end
 
+-- 触摸开始回调
+-- @param touches 触摸对象集合
+-- @param event 事件
 function GestureManager:onTouchesBegan(touches, event)
 	for i, touch in ipairs(touches) do
 		if self:sideTest(touch) == side.left and self._uLeftTouch == nil then
@@ -179,6 +211,9 @@ function GestureManager:onTouchesBegan(touches, event)
 	return true
 end
 
+-- 触摸移动回调
+-- @param touches 触摸对象集合
+-- @param event 事件
 function GestureManager:onTouchesMoved(touches, event)
 	for i, touch in ipairs(touches) do
 		if touch == self._uLeftTouch then
@@ -190,6 +225,8 @@ function GestureManager:onTouchesMoved(touches, event)
 	end
 end
 
+-- 修正指纹位置
+-- @param pos 指纹位置
 function GestureManager:fixFPPosition(pos)
     local x, y = 0, 0
     x = math.max(pos.x, self._nLeftTL.x)
@@ -199,6 +236,8 @@ function GestureManager:fixFPPosition(pos)
     return x, y
 end
 
+-- 修正双曲线位置
+-- @param pos 双曲线位置
 function GestureManager:fixHBPosition(pos)
     local x, y = 0, 0
     x = math.max(pos.x, self._nLeftTL.x + 50)
@@ -208,6 +247,8 @@ function GestureManager:fixHBPosition(pos)
     return x, y
 end
 
+-- 修正左右方向轴位置
+-- @param x 准备使用的x坐标
 function GestureManager:fixAxis(x)
 	local dx = x - self._nAxis
 	if math.abs(dx) > 100 then
@@ -219,6 +260,8 @@ function GestureManager:fixAxis(x)
 	end
 end
 
+-- 左边界屏幕移动回调
+-- @param touch 触摸对象
 function GestureManager:leftTouchMoved(touch)
 	--改变摇杆位置，和人物方向判定
 	--print("left:touchMoved")
@@ -243,6 +286,8 @@ function GestureManager:leftTouchMoved(touch)
     self._rHyperbola:setPositionX(self._nAxis)
 end
 
+-- 右边界屏幕移动回调
+-- @param touch 触摸对象
 function GestureManager:rightToucheMoved(touch)
 	local startPos = self:convertToNodeSpace(touch:getStartLocation())
 	local curPos = self:convertToNodeSpace(touch:getLocation())
@@ -275,6 +320,9 @@ function GestureManager:rightToucheMoved(touch)
 	end
 end
 
+-- 触摸取消回调
+-- @param touches 触摸对象集合
+-- @param event 事件
 function GestureManager:onTouchesCanceled(touches, event)
     for i, touch in ipairs(touches) do
         if touch == self._uLeftTouch then
@@ -290,6 +338,9 @@ function GestureManager:onTouchesCanceled(touches, event)
     end
 end
 
+-- 触摸结束回调
+-- @param touches 触摸对象集合
+-- @param event 事件
 function GestureManager:onTouchesEnded(touches, event)
 	for i, touch in ipairs(touches) do
 		if touch == self._uLeftTouch then

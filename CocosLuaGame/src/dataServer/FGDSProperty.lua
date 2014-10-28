@@ -5,6 +5,7 @@
 -- @copyright usugame
 
 require "Cocos2d"
+require("staticData.data_templetHS")
 
 ---
 -- 生物类 
@@ -19,10 +20,10 @@ end)
 -- @return userdata 实例
 function BioProperty:create()
  
-    BioProperty = BioProperty.new()
-    BioProperty:retain()
+    local _bioProperty = BioProperty.new()
+    _bioProperty:retain()
 
-    return BioProperty
+    return _bioProperty
 end
 
 
@@ -48,7 +49,7 @@ end
 -- @param prot 协议
 -- @treturn bool bool 是否处理此协议
 function BioProperty:sendMessageProc(prot)
-    print("got send prot2 ",prot.protId)
+--    print("got send prot2 ",prot.protId)
 
     if prot.protId == 900100 then
         print("got scene request2     ",prot.protId)
@@ -75,7 +76,7 @@ function BioProperty:init(pdata)
     self.dynamicId = pdata.dynamicId
     self.lead = pdata.lead
     self.status = pdata.status
-    self.hardStraight = pdata.hardStraight
+    self.hardStraight = data_templetHS.templet[pdata.templetHS].hardStraight
     self.schedulerID = nil
     self.hs = {}
     self.tickTime = nil
@@ -83,6 +84,8 @@ function BioProperty:init(pdata)
     self.invincible = false
     --伤害队列 
     self.damageList = {}
+    --倒地倒计时1秒 无攻击则不论硬直是否归零 都起身
+    self.upCount = nil
     
     --硬直初始化
     local hsId 
@@ -182,7 +185,7 @@ end
 
 --当前状态 下一个状态 相关逻辑处理
 function BioProperty:statusChange(currentS,nextS,bySelf)
- --   print("fy-- 状态转换 当前状态 / 下一个状态 / 是否内部逻辑 ",currentS,nextS,bySelf)
+    print("fy-- 状态转换 当前状态 / 下一个状态 / 是否内部逻辑 / 动态ID  ",currentS,nextS,bySelf,self.dynamicId)
 	--状态机 根据当前和下一个状态 处理相关逻辑
 	if currentS == nextS then 
 	   if currentS == g_bioStateType.beStrikeFly then
@@ -194,6 +197,25 @@ function BioProperty:statusChange(currentS,nextS,bySelf)
 	   end   
 	else
         local hsId,hsType = self:getHSByStatus(nextS)
+        
+        --若当前状态为 受击 击飞 则C2S状态变化不处理
+        if (self.status == g_bioStateType.beHit or self.status == g_bioStateType.lyingFloor) 
+            and not bySelf then 
+            print("fy-- C2S 状态转变不处理1 当前状态 / 请求转换的状态 ",self.status,nextS,self.dynamicId)
+            return  
+        end
+        if (self.status == g_bioStateType.beStrikeFly or self.status == g_bioStateType.lyingFly 
+            or self.status == g_bioStateType.beRebound)  and nextS ~= g_bioStateType.lyingFloor
+            and not bySelf then
+            print("fy-- C2S 状态转变不处理2 当前状态 / 请求转换的状态 ",self.status,nextS,self.dynamicId)
+            return
+        end 
+        
+        --若下一个状态为 倒地 1秒起身倒计时开始 
+        if nextS == g_bioStateType.lyingFloor then
+            self.upCount = 100
+            print("fy-- 下一个状态倒地 1秒  ",self.status,nextS,self.dynamicId,FGGetTickCountMS())
+        end 
         
         if hsType == self.statusType then
             --前后状态为同一种硬直状态
@@ -207,12 +229,14 @@ function BioProperty:statusChange(currentS,nextS,bySelf)
             elseif self.statusType == 4 then
                 if nextS == g_bioStateType.lyingFly then
                     --豁免
+                    self.upCount = nil
                     self.invincible = true
                     self.hs.current = 0
                     --S2C
                     if bySelf then
                         self:sendStatus(nextS)
                     end
+                    print("fy-- 下一个状态倒地 1秒1  ",self.status,nextS,self.dynamicId,FGGetTickCountMS())
                 end
             end
         else
@@ -265,10 +289,16 @@ end
 --死亡状态处理
 function BioProperty:deathHandle()
     print("fy-- 死亡",self.dynamicId)
-    self.status = g_bioStateType.death
-    self:sendStatus(self.status)
     
-    --通知管理类 删除对象 删除消息监听
+    self.upCount = nil
+    self:sendStatus(g_bioStateType.death)
+    self.status = g_bioStateType.death
+    self.damageList = {}
+end
+
+--删除对象
+function BioProperty:clean()
+	--通知管理类 删除对象 删除消息监听
     GFSendRemoveListioner(self)
     local manage = require("dataServer.FGDSManage"):getInstance()
     manage:removeByDynamicId(self.dynamicId)
@@ -292,32 +322,56 @@ end
 -- 生物类 碰撞检测 受击者的相关处理
 -- @param skillId 技能ID
 function BioProperty:goalHandle(skillId,attackDynamicId,faceDirection,moveDirection)
-    print("fy-- 碰撞 受击者 技能ID / 攻击者ID ",skillId,attackDynamicId)
+    print("fy-- 碰撞 受击者 技能ID / 攻击者ID ",skillId,attackDynamicId,g_tSkillData[skillId])
     if not g_tSkillData[skillId] then return end
     
     --是否攻击豁免状态
     if self.invincible then print("fy-- 攻击豁免") return end  
+    
+    --随机暴击 暂时
+    local _crit = 0
+    local damage = g_tSkillData[skillId].damage
+    local _rNum = FGRandom(9)
+    if _rNum <= 3 then 
+        _crit = 1
+        damage = g_tSkillData[skillId].damage * 2
+    end
+    
         
-    local nowHp = self.hp - g_tSkillData[skillId].damage
-    print("fy-- 碰撞 受击者 扣血",g_tSkillData[skillId].damage)
+    local nowHp = self.hp - damage
+    print("fy-- 碰撞 受击者 扣血",g_tSkillData[skillId].damage , damage , _rNum ,self.status)
     if nowHp <= 0 then 
         nowHp = 0 
         --设置状态为死亡
         self:deathHandle()
         
         self:setHp(nowHp)
-        self:sendDamage(attackDynamicId,g_tSkillData[skillId].damage,0,skillId,faceDirection,moveDirection)  
+        self:sendDamage(attackDynamicId,damage,_crit,skillId,faceDirection,moveDirection)  
+        self:clean()
     else
+        --若当前状态为倒地 upCount重置
+        if self.status == g_bioStateType.lyingFloor then
+            self.upCount = 100
+            print("fy-- 倒地状态被攻击 upCount 重置 ",FGGetTickCountMS())
+        end
         
-        self.hs.current = self.hs.current + g_tSkillData[skillId].hardStraightness
-        print("fy-- 碰撞 受击者 硬直增加",g_tSkillData[skillId].hardStraightness,self.hs.current,self.dynamicId)
+        --若当前为主角 且在攻击准备状态 进入霸体状态
+        local pa = false
+        if self.lead == 1 and 
+            (self.status == g_bioStateType.attackReady or self.status == g_bioStateType.jumpAttackReady ) then
+           pa = true 
+        end
+        if not pa then
+            self.hs.current = self.hs.current + g_tSkillData[skillId].hardStraightness
+            print("fy-- 碰撞 受击者 硬直增加",g_tSkillData[skillId].hardStraightness,self.hs.current,self.dynamicId)
+        end
         self:setHp(nowHp)
         
         --存储伤害信息 待硬直状态判断后分发伤害信息
         local dl = {}
         dl.attackDynamicId = attackDynamicId
-        dl.damage = g_tSkillData[skillId].damage
-        dl.dType = 0
+        dl.damage = damage
+        dl.dType = _crit
         dl.skillId = skillId 
         dl.faceDirection = faceDirection
         dl.moveDirection = moveDirection
@@ -338,7 +392,7 @@ end
 
 
 --硬直相关
---根据状态 获取 对应的硬直种类 目前对应self.hardStraight 再对应到g_tHardStraight硬直属性
+--根据状态 获取 对应的硬直种类 目前对应self.hardStraight 再对应到data_templetHS.hardStraight硬直属性
 function BioProperty:getHSByStatus(status)
     for i,v in pairs(g_tStatusHardStraight or {}) do
 	   for p,q in pairs(v) do 
@@ -360,7 +414,7 @@ function BioProperty:initHS(hsId)
         cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.schedulerID)
     end
     
-	if not g_tHardStraight[hsId] then 
+	if not data_templetHS.hardStraight[hsId] then 
        self.hs = {}
 	   return 
 	end 
@@ -372,9 +426,10 @@ function BioProperty:initHS(hsId)
     end
 	
 	self.hs = {}
-    self.hs.maxhs = g_tHardStraight[hsId].max
-    self.hs.a = g_tHardStraight[hsId].a
-    self.hs.defense = g_tHardStraight[hsId].defense
+    self.hs.maxhs = data_templetHS.hardStraight[hsId].max
+    self.hs.a = data_templetHS.hardStraight[hsId].a
+    self.hs.defense = data_templetHS.hardStraight[hsId].def
+    print("fy-- 硬直初始化",self.hs.maxhs,self.hs.a,hsId)
     if self.statusType == 4 then
     --[[
         if percentage <= 0.8 then
@@ -412,12 +467,13 @@ function BioProperty:loop()
     if self.hs.current <= 0 then
         self.hs.current = 0
   --      print("fy-- hs tick1 ",self.hs.current,self.status)
-        -- 硬直衰减为0  当是受击状态时 转换为站立状态
+        -- 硬直衰减为0  当是受击状态时 转换为站立状态 倒地 - 起身
         if self.status == g_bioStateType.beHit or self.status == g_bioStateType.lyingFloor then
             local nextS = self:judgeNextStatus(self.statusType,false,false,true)
             print("fy-- hs tick1 ",nextS)
             if nextS then
                 self:setStatus(nextS,true)
+                self.upCount = nil
             end
         end
     end 
@@ -441,12 +497,39 @@ function BioProperty:loop()
         end
     end
     
+    --倒地状态 起身倒计时1秒处理
+    self:upHandle(t-self.tickTime)
+    
     self.tickTime = t
 --    print("fy-- hs tick2 ",self.hs.current)
     --处理状态后 调用分发伤害信息
     self:sendDamageList()
 end
 
+
+--倒地 1秒倒计时 loop处理
+function BioProperty:upHandle(t)
+    print("fy-- 倒地1秒无人攻击 起身0",self.upCount,self.dynamicId)
+    if self.upCount == nil then return end
+
+    local a = -0.1
+    print("fy-- 倒地1秒无人攻击 起身1 ",self.upCount)
+	if self.upCount > 0 then
+	   self.upCount = self.upCount + a * t  
+	end
+    print("fy-- 倒地1秒无人攻击 起身2 ",self.upCount)
+	if self.upCount <= 0 then
+	   --起身
+        if self.status == g_bioStateType.lyingFloor then
+            local nextS = self:judgeNextStatus(self.statusType,false,false,true)
+            print("fy-- 倒地1秒无人攻击 起身3 ",nextS,FGGetTickCountMS())
+            if nextS then
+                self:setStatus(nextS,true)
+                self.upCount = nil
+            end
+        end
+	end
+end
 
 --分发伤害信息
 function BioProperty:sendDamageList()
@@ -463,9 +546,10 @@ end
 function BioProperty:sendStatus(status)
     local prot = GFProtGet(ProBioStatusChange_S2C_ID)
     prot.dynamicId = self.dynamicId
-    prot.status = status
+    prot.nextStatus = status
+    prot.currentStatus = self.status
     GFRecOneMsg(prot)
-    print("fy-- S2C状态变化",status)
+    print("fy-- S2C状态变化",status,self.dynamicId)
 end
 
 --damage

@@ -1,0 +1,22 @@
+data_functionOpen={
+func={
+[1]={
+System="副本",
+OpenLv=2,
+FbId=40008,
+totalrecharge=5,
+Upcoming=1,
+Twinkle=1,
+Tooltip="达到%d级解锁此功能",
+},
+},
+mainPos={
+[1]={
+System="副本",
+types=1,
+pos=1,
+IsShow=1,
+image="",
+},
+},
+}-- end of file

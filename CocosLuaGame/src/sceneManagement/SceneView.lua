@@ -20,12 +20,6 @@ function SceneView:createScene(id)
     end
     scene:addChild(scene:createLayer(id))
 
-    UILayer = require("sceneManagement.MenuLayer"):createLayer()
-    scene:addChild(UILayer)
-    if not g_bIsShowUI then
-        UILayer:setVisible(false)
-    end
-
     return scene
     
 end
@@ -43,7 +37,7 @@ function SceneView:ctor()
     ---add 9.12
     self.portalsLayer   =   nil
     ---add by liushenli 
-    self.standingY      =   200
+    self.standingY      =   150
     self._x             =   0
     self._y             =   0
 
@@ -51,12 +45,9 @@ function SceneView:ctor()
     --add 9.16 zx
     gameWinSize:getInstance():setSceneScale(self)
     self._x,self._y = gameWinSize:getInstance():GetSceneOriginPos()
-
     local function onNodeEvent(event)
         if "enter" == event then
-            --- 2014年09月17日19:38:09 zx
-            -- loading层           
-            -- print("加载资源")
+            
         elseif "cleanup" == event then
             print("----退出----  ( Log Position: SceneView.lua --- 56 by zx )")
             cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.scheduleId)
@@ -82,33 +73,37 @@ function SceneView:createLayer(id)
     if not self.bg_far then
         print("远景创建失败( Log Position: SceneView.lua --- 78 by zx )")
     end
-    
+        
     ---
     -- 添加背景层
     self.layer:addChild(self.bg_far)
     self.layer:addChild(self.bg_near)
+    
+    
     ---
     -- 设置背景偏移量
-    self.bg_far:setPosition(-self._x,220)
+    self.bg_far:setPosition(-self._x,210)
     self.bg_near:setPosition(-self._x,-self._y)
-        
+    self.bg_near:addChild(self:createPorsLayer(),0)   
     local centerPos     =   cc.p(self.winSize.width/2,self.winSize.height/2)                                    -- 屏幕中心点
     local originPoint   =   cc.p( -1 * self._x, -1 * self._y )                                                  -- 像素点，(偏移了)
     local heroPos       =   cc.p( 0, 0 )                                                                        -- 帅哥，美眉初始点     
     local scenePos      =   cc.p( 0, 0 )                                                                        -- 屏幕位置
     local LBCenterPos   =   centerPos                                                                           --  ↙  中心点
-    local LTCenterPos   =   { x = centerPos.x, y = self.bg_near:getContentSize().height + 220 - centerPos.y }   --  ↖  中心点
+    local LTCenterPos   =   { x = centerPos.x, y = self.bg_near:getContentSize().height + 210 - centerPos.y }   --  ↖  中心点
     local RBCenterPos   =   { x = self.bg_near:getContentSize().width - centerPos.x, y = centerPos.y }          --  ↘  中心点
     local RTCenterPos   =   { x = self.bg_near:getContentSize().width - centerPos.x, 
-                              y = self.bg_near:getContentSize().height + 220 - centerPos.y }                    --  ↗  中心点
+                              y = self.bg_near:getContentSize().height + 210 - centerPos.y }                    --  ↗  中心点
     local persentX      =   ( self.bg_far:getContentSize().width  - self.winSize.width - self._x * 2 ) / 
                             ( self.bg_near:getContentSize().width - self.winSize.width - self._x * 2 )          -- 速度比例
     local persentY      =   0.3                                                                                 -- 非固定值
     local newPos        =   cc.p( 0, 0 )                                                                        -- 远景位置
 
+    
     local function update()
 
         if self.hero then
+            
             local perNearPos = cc.p( self.bg_near:getPositionX(), self.bg_near:getPositionY() )
             local heroXMove  = false         --
             local heroYMove  = false    
@@ -159,8 +154,7 @@ function SceneView:createLayer(id)
 
             ---
             -- 9.17 传送门碰撞
-            --self.portalsLayer:IsCollide(self.hero)
-            
+            self.portalsLayer:IsCollide(self.hero)
         else
             print("update() ---> Hero对象为空 ( Log Position: SceneView.lua --- 160 by zx )")
             cc.Director:getInstance():getScheduler():unscheduleScriptEntry(self.scheduleId)
@@ -169,9 +163,16 @@ function SceneView:createLayer(id)
     end
     self.scheduleId = cc.Director:getInstance():getScheduler():scheduleScriptFunc(update, 0, false) 
 
+    
+
+
+
+
     --- 区域显示
     -- 2014-09-19 23:06:50 by zx
-    local showRect = cc.MenuItemImage:create("menu1.png","menu1.png")
+    --[[local showRect = cc.MenuItemImage:create("menu1.png","menu1.png")
+    showRect:setRotation( -1 * 45)
+    showRect:setVisible(false)
     showRect:setPosition(0,0)
     local function p()
         local sm = require("sceneManagement.sceneManagement"):getInstance()
@@ -186,11 +187,12 @@ function SceneView:createLayer(id)
         end
     end
     showRect:registerScriptTapHandler(p)
-    showRect:setGlobalZOrder(10)
+    showRect:setGlobalZOrder(10)]]
 
     --UI 显示
-    local showUI = cc.MenuItemImage:create("menu1.png","menu1.png")
+    --[[local showUI = cc.MenuItemImage:create("menu1.png","menu1.png")
     showUI:setPosition(200,0)
+    showUI:setVisible(false)
     local function pp()
         
         if true == g_bIsShowUI then
@@ -206,39 +208,28 @@ function SceneView:createLayer(id)
 
      local menu = cc.Menu:create(showRect,showUI)
      menu:setPosition(480,600)
-    self.layer:addChild(menu)
+    self.layer:addChild(menu)]]
     ---
-
-
-    --- 伤害 test OK
-    -- 2014年09月20日14:23:55 by zx
-
-    local t = require("sceneManagement.hurtNumber"):createNumber(showRect,100,false)
-    t:runCustomAction()
-    local tt = require("sceneManagement.hurtNumber"):createNumber(showRect,300,true)
-    tt:runCustomAction()
-
-    ----2014-09-24 20:06:38 by zx
-    require("sceneManagement/preloadLayers"):PreLoadLayer(self.layer,self.visibleSize)
     
     return self.layer
 end
 
 -- 坐标点判断
-function SceneView:PointInNearBg(x,y)
-    local _x, _y = x, y
-    if _x < 0 then 
-        _x = 0
+function SceneView:PointInNearBg(object)
+    local _x, _y = object:getMainPosition()
+    if _x < 50 then 
+        _x = 50
     end
-    if  _x > ( self.bg_near:getContentSize().width ) then
-        _x = ( self.bg_near:getContentSize().width )  
+    if  _x > ( self.bg_near:getContentSize().width - 50 ) then
+        _x = ( self.bg_near:getContentSize().width - 50)  
     end
 
-    if  _y < self.standingY then
-        _y = self.standingY
+    if  _y < object.orgPos.y then
+        _y = object.orgPos.y --self.standingY
     end
-    if  _y > self.bg_near:getContentSize().height then
-        _y = self.bg_near:getContentSize().height
+
+    if  _y > self.bg_far:getContentSize().height+self.bg_far:getPositionY() then
+        _y = self.bg_far:getContentSize().height+self.bg_far:getPositionY()
     end
     return _x, _y
 end
@@ -249,11 +240,11 @@ end
 
 ---add 9.12
 function SceneView:createPorsLayer()
-    local _layer = require("sceneManagement/Portals/PortalsLayer")
-    self.portalsLayer  = _layer:createPortalsLayer()
+    local _layer = require("sceneManagement.Portals.PortalsLayer")
+    self.portalsLayer  = _layer:createPortalsLayer(0,self.visibleSize.height/2,2275,self.visibleSize.height/2,500,self.visibleSize.height/2,1000,self.visibleSize.height/2)
     if self.portalsLayer then
         self.portalsLayer:setAnchorPoint(0,0)
-        self.portalsLayer:setPosition(0,0)
+        self.portalsLayer:setPosition(-self._x,-self._y)
         return self.portalsLayer 
     else
         print("create PortalsLayer failed")
@@ -270,7 +261,7 @@ function SceneView:GetHero()
 end
 
 function SceneView:AddFarBg()
-    local _bgfar = cc.Sprite:create("far.jpg")
+    local _bgfar = cc.Sprite:create("far4.jpg")
     _bgfar:setAnchorPoint(0,0)
     return _bgfar
 end
@@ -278,7 +269,7 @@ end
 ---
 -- @return _bgnear 近景对象
 function SceneView:AddNearBg()
-    local _bgnear = cc.Sprite:create("near.png")
+    local _bgnear = cc.Sprite:create("near4.png")
     _bgnear:setAnchorPoint(0,0) 
     return _bgnear
 end
@@ -307,5 +298,30 @@ function SceneView:GetNearBg()
         print("self.bg_near is nil")
     end
 end
+
+function SceneView:GetNearBgXLeft()
+    if self.bg_near then
+        return self.bg_near:getPositionX() 
+    end
+end
+
+function SceneView:GetNearBgXRight()
+    if self.bg_near then
+        return self.bg_near:getContentSize().width
+    end
+end
+
+function SceneView:GetFarBgXLeft()
+    if self.bg_far then
+        return self.bg_far:getPositionX()
+    end
+end
+
+function SceneView:GetFarBgXRight()
+    if self.bg_far then
+        return self.bg_far:getContentSize().width
+    end
+end
+
 
 return SceneView

@@ -1,6 +1,6 @@
 ---
 -- 战斗模块 客户端内部通信协议 
--- ID段:9001~9100
+-- ID段:29001~29100
 -- @module ProtBioInstance
 -- @author 张微
 -- @copyright usugame
@@ -10,25 +10,25 @@
 
 
 -- PVE战斗 生物类列表
-ProtBioInstanceList_C2S_ID  = 9001
-ProtBioInstanceList_S2C_ID  = 9002
+ProtBioInstanceList_C2S_ID  = 29001
+ProtBioInstanceList_S2C_ID  = 29002
 
 --表现通知逻辑 坐标更新 目前限主角
-ProtBioPosition_C2S_ID = 9003
+ProtBioPosition_C2S_ID = 29003
 
 --状态变化
-ProBioStatusChange_C2S_ID = 9005
-ProBioStatusChange_S2C_ID = 9006
+ProBioStatusChange_C2S_ID = 29005
+ProBioStatusChange_S2C_ID = 29006
 
 --碰撞检测 
-ProtBioCollision_C2S_ID = 9007
+ProtBioCollision_C2S_ID = 29007
 
 --请求施放技能
-ProtBioCastSkill_C2S_ID = 9009
-ProtBioCastSkill_S2C_ID = 9010
+ProtBioCastSkill_C2S_ID = 29009
+ProtBioCastSkill_S2C_ID = 29010
 
 --伤害 表现相关
-ProtBioDamage_S2C_ID = 9012
+ProtBioDamage_S2C_ID = 29012
 
 
 
@@ -44,9 +44,8 @@ local Coordinates = {
 
 
 
---请求生物类列表
+--请求生物类列表 可用于中途加怪物
 protDict[ProtBioInstanceList_C2S_ID] = {
-    protId = ProtBioInstanceList_C2S_ID,  
 }
 
 local instanceList = {
@@ -62,7 +61,6 @@ local instanceList = {
 
 --请求生物类列表返回
 protDict[ProtBioInstanceList_S2C_ID] = {
-    protId = ProtBioInstanceList_S2C_ID,
 	instanceList =  instanceList,	--生物列表
 }
 
@@ -71,7 +69,6 @@ protDict[ProtBioInstanceList_S2C_ID] = {
 
 --坐标更新
 protDict[ProtBioPosition_C2S_ID] = {
-    protId = ProtBioPosition_C2S_ID,
     dynamicId = -1,                     --动态ID  
     position = Coordinates,            
 }
@@ -81,22 +78,20 @@ protDict[ProtBioPosition_C2S_ID] = {
 
 --状态变化
 protDict[ProBioStatusChange_C2S_ID] = {
-    protId = ProBioStatusChange_C2S_ID,
     dynamicId = -1,                     --动态ID
     status = -1,                        --状态 对应g_bioStateType
 }
 
 protDict[ProBioStatusChange_S2C_ID] = {
-    protId = ProBioStatusChange_S2C_ID,
     dynamicId = -1,                     --动态ID
-    status = -1,                        --状态 对应g_bioStateType
+    currentStatus = -1,                 --上一个状态
+    nextStatus = -1,                    --下一个状态 对应g_bioStateType
 }
 
 
 
 --碰撞检测
 protDict[ProtBioCollision_C2S_ID] = {
-    protId = ProtBioCollision_C2S_ID,
     attackerDynamicId = -1,             --攻击者动态ID
     goalDynamicId = -1,                 --被攻击者动态ID
     skillId = -1,                       --技能ID
@@ -106,13 +101,11 @@ protDict[ProtBioCollision_C2S_ID] = {
 
 --请求是否可以施放技能
 protDict[ProtBioCastSkill_C2S_ID] = {
-    protId = ProtBioCastSkill_C2S_ID,
     dynamicId = -1,                     --攻击者动态ID
     skillId = -1,                       --技能ID
 }
 
 protDict[ProtBioCastSkill_S2C_ID] = {
-    protId = ProtBioCastSkill_S2C_ID,
     dynamicId = -1,                     --攻击者动态ID
     skillId = -1,                       --技能ID
     cast = -1,                          --0可施放 1CD 2魔不够 3状态不可施放
@@ -120,7 +113,6 @@ protDict[ProtBioCastSkill_S2C_ID] = {
 
 --扣血 
 protDict[ProtBioDamage_S2C_ID] = {
-    protId = ProtBioDamage_S2C_ID,
     dynamicId = -1,                     --被攻击者动态ID
     attackDynamicId = -1,               --攻击者动态ID
     damage = -1,                        --扣血量

@@ -106,13 +106,13 @@ end
 
 function GFIsHostileByFaction(faction1,faction2)
 
-    if faction1==g_bioFactionType.friend or faction1==g_bioFactionType.friendPets  then
-        if faction2==g_bioFactionType.enemies or  faction2==g_bioFactionType.enemiesPets then
+    if faction1==g_bioFactionType.friend then
+        if faction2==g_bioFactionType.enemy then
            return true 
         end
      end
-     if faction1== g_bioFactionType.enemies  or faction1==g_bioFactionType.enemiesPets then
-        if  faction2== g_bioFactionType.friend or faction2==g_bioFactionType.friendPets then
+     if faction1== g_bioFactionType.enemy then
+        if  faction2== g_bioFactionType.friend then
            return true
         end
      end
@@ -132,6 +132,10 @@ function pprint(lua_table, indent)
     print("\n\n")
 end
 
+function printByCsp(lua_table,str)
+    print("陈思平Log--"..str)
+	pprint(lua_table)
+end
 function print_table(lua_table, indent)
     indent = indent or 0
     for k, v in pairs(lua_table) do

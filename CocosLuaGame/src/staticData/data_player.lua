@@ -1,0 +1,20 @@
+data_player={
+player={
+[1]={
+className="主角1",
+mold=1,
+faction=1,
+camp=0,
+class=0,
+sex=1,
+hurtType=0,
+status=1,
+skill=0,
+templetAI=0,
+templetHS=1,
+att=100,
+hp=50000000000,
+mp=1000,
+},
+},
+}-- end of file

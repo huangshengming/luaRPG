@@ -32,11 +32,17 @@ end
 
 function GFPlayerRightControl(event)
     if g_playerObj~=nil then
-        local dir = g_playerObj:getDirection()
+        local dir = nil
         local order = nil
         if event == g_gestureType.click then
             --print("ActionTransform : g_gestureType.click")
-            order = g_attackOrderType.click
+            if g_playerObj.state==g_bioStateType.running then
+                order = g_attackOrderType.runAttack
+            elseif g_playerObj.state==g_bioStateType.jumpUp or g_playerObj.state==g_bioStateType.jumpDown then
+                order = g_attackOrderType.airAttack
+            else
+                order = g_attackOrderType.normalAttack
+            end
         elseif event == g_gestureType.left then
             order = g_attackOrderType.onrush
             dir = g_bioDirectionType.left
@@ -51,7 +57,10 @@ function GFPlayerRightControl(event)
             g_playerObj:enterNextState(state)
         elseif event == g_gestureType.down then
             --print("ActionTransform : g_gestureType.down")
-            order = g_gestureType.down
+            order = g_attackOrderType.cutDown
+            if g_playerObj.state==g_bioStateType.jumpUp or g_playerObj.state==g_bioStateType.jumpDown then
+                order = g_attackOrderType.swoopDown
+            end
         end
 
         if order~=nil then

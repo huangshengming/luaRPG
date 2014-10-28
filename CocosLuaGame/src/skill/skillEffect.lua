@@ -19,6 +19,7 @@ end)
 -- @number bioId 技能释放者动态Id
 -- @number effId 特效Id
 -- @param direction 施放方向
+-- @table collideData 技能碰撞数据
 -- @param sceneManagement 场景管理类
 function skillEffect:create(skillId,bioId,effId,direction,bioFaction,collideData,sceneManagement)
     local obj = skillEffect.new(skillId,bioId,effId,direction,bioFaction,collideData,sceneManagement)

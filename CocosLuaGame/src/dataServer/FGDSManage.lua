@@ -8,6 +8,10 @@ require "Cocos2d"
 
 local _FGDSManage = nil
 
+--无尽
+local wave = 1
+
+
 ---
 -- 生物管理类 
 -- @type FGDSManage Node
@@ -31,6 +35,10 @@ end
 function FGDSManage:ctor()
 
     self._tBio = {}
+    self.dy = 0
+    self._tList = {}
+    --当前增加的生物组属性列表
+    self._tAdd = {}
     
     local function onNodeEvent(event)
         if "cleanup" == event then
@@ -40,6 +48,16 @@ function FGDSManage:ctor()
     
 	--注册 生物相关通信 接收协议
     GFSendAddListioner(self)
+
+    --[[
+    self._tList = {}
+    if wave == 1 then
+        table.insert(self._tList,1)
+    end
+   self:endlessMode()
+   self:dataInit(self._tList)
+   self:sendListPort(self._tAdd)
+   ]]
 end
 
 
@@ -50,26 +68,32 @@ end
 function FGDSManage:sendMessageProc(prot)
 	print("got send prot ",prot.protId)
 	
-    if prot.protId == 9001 then
+    if prot.protId == ProtBioInstanceList_C2S_ID then
         -- 场景 怪物 初始化
+        --[[
 	   print("got scene request     ",prot.protId)
-	   self.dataInit(self)
-       self.sendListPort(self)
-       
+        self._tList = {}
+        if wave == 1 then
+            table.insert(self._tList,1)
+        end
+	   self:endlessMode()
+       self:dataInit(self._tList)
+       self:sendListPort(self._tAdd)
+       ]]
 	   return true 
-	elseif prot.protId == 9003 then
+    elseif prot.protId == ProtBioPosition_C2S_ID then
 	   -- 主角坐标 更新
 	    print("fy-- C2S role position update")
         self:rolePositionUpdate(prot.Coordinates)
     	
 	   return true 
-	elseif prot.protId == 9005 then 
+    elseif prot.protId == ProBioStatusChange_C2S_ID then 
 	   --C2S 状态变更
-	   print("fy-- C2S status change  ",prot.protId)
+        print("fy-- C2S status change  ",prot.protId,prot.dynamicId,prot.status)
         self:setStatus(prot.dynamicId,prot.status)
 	   
 	   return true
-	elseif prot.protId == 9007 then
+    elseif prot.protId == ProtBioCollision_C2S_ID then
 	   -- 碰撞检测
         print("fy-- C2S Collision ",prot.attackerDynamicId,prot.goalDynamicId,prot.skillId)
         self:collision(prot.attackerDynamicId,prot.goalDynamicId,prot.skillId,prot.faceDirection,prot.moveDirection)
@@ -81,10 +105,17 @@ function FGDSManage:sendMessageProc(prot)
 end
 
 --场景 怪物 初始化 协议相关 
+--获取当前生物列表
+function FGDSManage:getBioList(  )
+    return self._tBio
+end
+
+
 --场景 生物列表 返回协议
-function FGDSManage:sendListPort()
+function FGDSManage:sendListPort(list,ifAdd)
+ --  list = self._tBio
     local bioList = {}
-	for i,v in ipairs(self._tBio or {}) do 
+    for i,v in ipairs(list or {}) do 
         local instanceList = {}
         local Coordinates = {}
         Coordinates.x = v.positionX
@@ -98,33 +129,57 @@ function FGDSManage:sendListPort()
         instanceList.status = v.status
         instanceList.faction = v.faction
         
+        --临时代码 无尽模式 怪物坐标随机变动
+        local _rNum = FGRandom(9)
+        Coordinates.x = _rNum * 100
+        
+        print("fy-- 发送怪物信息 " ,i,v.dynamicId,v.staticId)
         table.insert(bioList,instanceList)
 	end
-	local prot = GFProtGet(ProtBioInstanceList_S2C_ID)
-    prot.instanceList = bioList
+	local prot
+    if ifAdd then
+         print("fy-- add ")
+        prot = GFProtGet(ProtBioInstanceList_S2C_ID)
+        prot.instanceList = bioList
+    else
+        print("fy-- clean add ")
+        prot = GFProtGet(protSceneInit_S2C_ID)
+        prot.bioList = bioList
+    end
+    
     GFRecOneMsg(prot)
+    self._tAdd = {}
 end
 
 --怪物相关数据数据初始化 
-function FGDSManage:dataInit()
-
-    local dy = 0
-    for i,v in ipairs(g_bioConfiguration[1] or {}) do 
+function FGDSManage:dataInit(list,pX)
+    self._tAdd = {}
+    for i,v in pairs(list or {}) do 
         local dataList = {}
-        if g_bioProperty[v] then 
-            dataList = FGDeepCopy(g_bioProperty[v])
-            print("fuck-- init1  ")
+        
+        if v < 100 then 
+            if data_player.player[v] then
+                dataList = FGDeepCopy(data_player.player[v])
+            end
+        else 
+            if data_monster.Monster[v] then
+                dataList = FGDeepCopy(data_monster.Monster[v])
+            end
         end
-        dataList.dynamicId = 1000 + dy 
-        dy = dy + 1 
+        dataList.pX = pX
+        dataList.staticId = v
+
+        dataList.dynamicId = 1000 + self.dy 
+        self.dy = self.dy + 1 
         local bio = require("FGDSProperty")
         local bioInstance = bio.create()
         dataList.obj = bioInstance
         bioInstance:init(dataList)               
         table.insert(self._tBio,dataList)
+        table.insert(self._tAdd,dataList)
         print("fuck-- init11  ",dataList.staticId,dataList.dynamicId)
     end
-
+    pprint(self._tBio)
 end
 
 --根据动态ID 获取当前对象 及 数据表
@@ -141,10 +196,10 @@ end
 
 
 --管理数据相关
-function FGDSManage:addByStaticId(staticId)
-    if not g_bioProperty[staticId] then print("fy-- 场景添加怪物ID错误") return end
-    
-    --
+function FGDSManage:addByStaticId(staticIdList,ifAdd)
+  --  if not g_bioProperty[staticId] then print("fy-- 场景添加怪物ID错误") return end
+    self:dataInit(staticIdList)
+    self:sendListPort(self._tAdd,ifAdd)  
 end
 
 function FGDSManage:removeByDynamicId(dynamicId)
@@ -154,6 +209,18 @@ function FGDSManage:removeByDynamicId(dynamicId)
             table.remove(self._tBio,i)
         end
     end
+ --   self:addBio()
+end
+
+--无尽模式 临时代码
+--检测 如果场景中只剩英雄 怪物都死亡 则重新加入下一组怪物
+function FGDSManage:addBio()
+    print("fy-- 无尽 剩余怪物 ",#(self._tBio),self._tBio[1].staticId)
+	if #(self._tBio) == 1 and self._tBio[1].staticId == 1 then
+        self._tList = {}
+	   self:endlessMode()
+	   self:addByStaticId(self._tList,true)
+	end
 end
 
 --主角坐标更新
@@ -170,6 +237,7 @@ function FGDSManage:setStatus(dId,status)
     local obj = self:getInstanceByDynamicId(dId)
 	if obj == nil then return end 
 	obj:setStatus(status,false)
+    print("fy-- C2S 状态变化 状态 / 动态ID ",status,dId)
 end
 
 
@@ -196,6 +264,27 @@ function FGDSManage:remove()
         self.release()
         _FGDSManage = nil
 	end
+end
+
+--临时代码 
+--无尽模式
+--怪物组初始化
+function FGDSManage:endlessMode()
+	local group = (wave-1)%6 + 1
+	local list = {101,102,103,}
+    local addhero = false
+--    self._tList = {}
+    print("fy-- 无尽 添加怪物组 wave / group ",wave,group)
+	for i=1,group do
+	   for k,v in pairs(list) do
+	       table.insert(self._tList,v)
+	   end
+	end
+	for i,v in pairs(self._tList or {}) do
+	   print("fy-- 无尽 添加怪物组 静态ID ",v)
+	end
+    wave = wave + 1
+    print("fy-- 无尽 添加怪物组  ",wave)
 end
 
 

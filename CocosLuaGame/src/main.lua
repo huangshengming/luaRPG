@@ -53,10 +53,25 @@ local function main()
    
     require ("include")
     require("gameloop"):getInstance()
+    shortLinkInit()
     require("sceneManagement.sceneManagement"):getInstance()
-    require("dataServer.FGDSManage"):getInstance()
+--    require("dataServer.FGDSManage"):getInstance()
     require("gestureManagement.actionTransform"):getInstance()
-   
+    require("armatureRender.armatureDraw")
+    GFPreloadJson({1,2,3})
+
+
+    --临时模拟 进入副本关卡返回
+    --add by zw 
+    --[[]]
+    local inData = {}
+    inData.pointsDrop = {}
+    inData.pointsDrop = {{roomId = 1, bioStaticId = 20001, boxId = 1, }, } 
+    inData.roomList = {1, 2, 3 ,}
+    inData.miniMap = 1
+    require("instanceZones.instanceZones"):getInstance(inData,true)
+    
+    --end
 
 end
 

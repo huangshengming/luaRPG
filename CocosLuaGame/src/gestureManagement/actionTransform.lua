@@ -1,14 +1,28 @@
+-- 动作转换模块
+-- @module ActionTransform
+-- @author sxm
+-- @copyright usugame
+
 require("Cocos2d")
 
+-- 边界枚举表
+-- @table side
+-- @param left 左边
+-- @param right 右边
 local side = {
     left = 1,
     right = 2
 }
 
+-- 动作转换单例
 local ActionTransform_shared_instance = nil
 
+-- 动作转换类
+-- @type ActionTransform
 local ActionTransform = class("ActionTransform")
 
+-- 获取动作转换单例
+-- @return ActionTransform_shared_instance 动作转换单例
 function ActionTransform:getInstance()
     if ActionTransform_shared_instance == nil then
         ActionTransform_shared_instance = ActionTransform.new()
@@ -16,16 +30,23 @@ function ActionTransform:getInstance()
     return ActionTransform_shared_instance
 end
 
+-- 设置动作转换回调模块和回调函数
+-- @param _module 模块
+-- @param _handler 回调函数
 function ActionTransform:setHandler(_module, _handler)
 	self._tModule = _module
 	self._fHandler = _handler
 end
 
+-- 动作转换初始化回调
 function ActionTransform:ctor()
     local gestureMgr = require("gestureManagement.gestureManagement"):getInstance()
     gestureMgr:setHandler(self, self.handler)
 end
 
+-- 动作转换消息处理
+-- @param _side 边界枚举
+-- @param _event 事件枚举
 function ActionTransform:handler(_side, _event)
     if _side == side.left then
         self:leftHandler(_event)
@@ -36,6 +57,8 @@ end
 
 require("bio.playerControl")
 
+-- 左边界事件处理函数
+-- @param event 事件枚举
 function ActionTransform:leftHandler(event)
     --[[
     if event == g_walkingType.walkLeft then
@@ -58,6 +81,8 @@ function ActionTransform:leftHandler(event)
     GFPlayerLeftControl(event)
 end
 
+-- 右边界事件处理函数
+-- @param event 事件枚举
 function ActionTransform:rightHandler(event)
     --[[
     if event == g_gestureType.click then
